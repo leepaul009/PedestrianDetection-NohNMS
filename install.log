@@ -1,0 +1,118 @@
+Looking in indexes: https://anu9rng:****@rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/simple
+Obtaining file:///hd1/lqurszh/Documents/ai_workspace/PedestrianDetection-NohNMS
+Collecting termcolor>=1.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/8a/48/a76be51647d0eb9f10e2a4511bf3ffb8cc1e6b14e9e4fab46173aa79f981/termcolor-1.1.0.tar.gz (3.9 kB)
+Requirement already satisfied: Pillow in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from detectron2==0.1.1) (8.3.1)
+Collecting yacs>=0.1.6
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/38/4f/fe9a4d472aa867878ce3bb7efb16654c5d63672b86dc0e6e953a67018433/yacs-0.1.8-py3-none-any.whl (14 kB)
+Collecting tabulate
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/ca/80/7c0cad11bd99985cfe7c09427ee0b4f9bd6b048bd13d4ffb32c6db237dfb/tabulate-0.8.9-py3-none-any.whl (25 kB)
+Collecting cloudpickle
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/e7/e3/898487e5dbeb612054cf2e0c188463acb358167fef749c53c8bb8918cea1/cloudpickle-1.6.0-py3-none-any.whl (23 kB)
+Collecting matplotlib
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/1d/2b/9f02f1bcd69c521d8dc64049bd4ed29064f74ef508e6dd0089dc811a2a15/matplotlib-3.4.2-cp38-cp38-manylinux1_x86_64.whl (10.3 MB)
+     |████████████████████████████████| 10.3 MB 335 kB/s
+Collecting tqdm>4.29.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/0b/e8/d6f4db0886dbba2fc87b5314f2d5127acdc782e4b51e6f86972a2e45ffd6/tqdm-4.62.0-py2.py3-none-any.whl (76 kB)
+     |████████████████████████████████| 76 kB 176 kB/s
+Collecting tensorboard
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/44/f5/7feea02a3fb54d5db827ac4b822a7ba8933826b36de21880518250b8733a/tensorboard-2.5.0-py3-none-any.whl (6.0 MB)
+     |████████████████████████████████| 6.0 MB 145 kB/s
+Collecting fvcore
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/34/8f/b149747b9166155106ea79fa10c3209134afadb98ac0a6589667eb08c911/fvcore-0.1.5.post20210730.tar.gz (49 kB)
+     |████████████████████████████████| 49 kB 233 kB/s
+Collecting future
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/45/0b/38b06fd9b92dc2b68d58b75f900e97884c45bedd2ff83203d933cf5851c9/future-0.18.2.tar.gz (829 kB)
+     |████████████████████████████████| 829 kB 667 kB/s
+Collecting pydot
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/ea/76/75b1bb82e9bad3e3d656556eaa353d8cd17c4254393b08ec9786ac8ed273/pydot-1.4.2-py2.py3-none-any.whl (21 kB)
+Collecting PyYAML
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/70/96/c7245e551b1cb496bfb95840ace55ca60f20d3d8e33d70faf8c78a976899/PyYAML-5.4.1-cp38-cp38-manylinux1_x86_64.whl (662 kB)
+     |████████████████████████████████| 662 kB 412 kB/s
+Requirement already satisfied: numpy in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from fvcore->detectron2==0.1.1) (1.20.3)
+Collecting iopath>=0.1.7
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/af/20/65dd9bd25a1eb7fa35b5ae38d289126af065f8a0c1f6a90564f4bff0f89d/iopath-0.1.9-py3-none-any.whl (27 kB)
+Collecting portalocker
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/68/33/cb524f4de298509927b90aa5ee34767b9a2b93e663cf354b2a3efa2b4acd/portalocker-2.3.0-py2.py3-none-any.whl (15 kB)
+Collecting kiwisolver>=1.0.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/99/04/41e831621ddec54f99e9e3693b8d4f2f583d7f3ee8df33bf9a7d6bf764de/kiwisolver-1.3.1-cp38-cp38-manylinux1_x86_64.whl (1.2 MB)
+     |████████████████████████████████| 1.2 MB 522 kB/s
+Collecting cycler>=0.10
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/f7/d2/e07d3ebb2bd7af696440ce7e754c59dd546ffe1bbe732c8ab68b9c834e61/cycler-0.10.0-py2.py3-none-any.whl (6.5 kB)
+Collecting python-dateutil>=2.7
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/36/7a/87837f39d0296e723bb9b62bbb257d0355c7f6128853c78955f57342a56d/python_dateutil-2.8.2-py2.py3-none-any.whl (247 kB)
+     |████████████████████████████████| 247 kB 248 kB/s
+Collecting pyparsing>=2.2.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/8a/bb/488841f56197b13700afd5658fc279a2025a39e22449b7cf29864669b15d/pyparsing-2.4.7-py2.py3-none-any.whl (67 kB)
+     |████████████████████████████████| 67 kB 115 kB/s
+Requirement already satisfied: six in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from cycler>=0.10->matplotlib->detectron2==0.1.1) (1.16.0)
+Collecting google-auth<2,>=1.6.3
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/35/bb/694d851e2c0776a422d43d579b82b7cc065da248d557f37595563824b1c9/google_auth-1.34.0-py2.py3-none-any.whl (152 kB)
+     |████████████████████████████████| 152 kB 157 kB/s
+Collecting tensorboard-plugin-wit>=1.6.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/1a/c1/499e600ba0c618b451cd9c425ae1c177249940a2086316552fee7d86c954/tensorboard_plugin_wit-1.8.0-py3-none-any.whl (781 kB)
+     |████████████████████████████████| 781 kB 517 kB/s
+Collecting requests<3,>=2.21.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/92/96/144f70b972a9c0eabbd4391ef93ccd49d0f2747f4f6a2a2738e99e5adc65/requests-2.26.0-py2.py3-none-any.whl (62 kB)
+     |████████████████████████████████| 62 kB 103 kB/s
+Collecting absl-py>=0.4
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/23/47/835652c7e19530973c73c65e652fc53bd05725d5a7cf9bb8706777869c1e/absl_py-0.13.0-py3-none-any.whl (132 kB)
+     |████████████████████████████████| 132 kB 240 kB/s
+Collecting google-auth-oauthlib<0.5,>=0.4.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/45/d9/df4019fc28b3aed8218e1bfca38158b90b70a3583c15f568ca669564dc24/google_auth_oauthlib-0.4.5-py2.py3-none-any.whl (18 kB)
+Requirement already satisfied: setuptools>=41.0.0 in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from tensorboard->detectron2==0.1.1) (52.0.0.post20210125)
+Collecting protobuf>=3.6.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/e1/24/762768848490169a1a0a6843e183e5f251da12e588c7b5421f39e0e23c14/protobuf-3.17.3-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.whl (1.0 MB)
+     |████████████████████████████████| 1.0 MB 530 kB/s
+Requirement already satisfied: wheel>=0.26 in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from tensorboard->detectron2==0.1.1) (0.36.2)
+Collecting werkzeug>=0.11.15
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/bd/24/11c3ea5a7e866bf2d97f0501d0b4b1c9bbeade102bb4b588f0d2919a5212/Werkzeug-2.0.1-py3-none-any.whl (288 kB)
+     |████████████████████████████████| 288 kB 167 kB/s
+Collecting tensorboard-data-server<0.7.0,>=0.6.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/60/f9/802efd84988bffd9f644c03b6e66fde8e76c3aa33db4279ddd11c5d61f4b/tensorboard_data_server-0.6.1-py3-none-manylinux2010_x86_64.whl (4.9 MB)
+     |████████████████████████████████| 4.9 MB 628 kB/s
+Collecting markdown>=2.6.8
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/6e/33/1ae0f71395e618d6140fbbc9587cc3156591f748226075e0f7d6f9176522/Markdown-3.3.4-py3-none-any.whl (97 kB)
+     |████████████████████████████████| 97 kB 164 kB/s
+Collecting grpcio>=1.24.3
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/89/65/0bcffaf1db154514fa87433411b6f01fcbcab2eab776438071482cb3c772/grpcio-1.39.0-cp38-cp38-manylinux2014_x86_64.whl (4.3 MB)
+     |████████████████████████████████| 4.3 MB 690 kB/s
+Collecting pyasn1-modules>=0.2.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/95/de/214830a981892a3e286c3794f41ae67a4495df1108c3da8a9f62159b9a9d/pyasn1_modules-0.2.8-py2.py3-none-any.whl (155 kB)
+     |████████████████████████████████| 155 kB 168 kB/s
+Collecting rsa<5,>=3.1.4
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/e9/93/0c0f002031f18b53af7a6166103c02b9c0667be528944137cc954ec921b3/rsa-4.7.2-py3-none-any.whl (34 kB)
+Collecting cachetools<5.0,>=2.0.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/bf/28/c4f5796c67ad06bb91d98d543a5e01805c1ff065e08871f78e52d2a331ad/cachetools-4.2.2-py3-none-any.whl (11 kB)
+Collecting requests-oauthlib>=0.7.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/a3/12/b92740d845ab62ea4edf04d2f4164d82532b5a0b03836d4d4e71c6f3d379/requests_oauthlib-1.3.0-py2.py3-none-any.whl (23 kB)
+Collecting pyasn1<0.5.0,>=0.4.6
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/62/1e/a94a8d635fa3ce4cfc7f506003548d0a2447ae76fd5ca53932970fe3053f/pyasn1-0.4.8-py2.py3-none-any.whl (77 kB)
+     |████████████████████████████████| 77 kB 131 kB/s
+Collecting urllib3<1.27,>=1.21.1
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/5f/64/43575537846896abac0b15c3e5ac678d787a4021e906703f1766bfb8ea11/urllib3-1.26.6-py2.py3-none-any.whl (138 kB)
+     |████████████████████████████████| 138 kB 125 kB/s
+Requirement already satisfied: certifi>=2017.4.17 in /hd1/lqurszh/anaconda3/envs/paul-py3/lib/python3.8/site-packages (from requests<3,>=2.21.0->tensorboard->detectron2==0.1.1) (2020.12.5)
+Collecting idna<4,>=2.5
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/d7/77/ff688d1504cdc4db2a938e2b7b9adee5dd52e34efbd2431051efc9984de9/idna-3.2-py3-none-any.whl (59 kB)
+     |████████████████████████████████| 59 kB 148 kB/s
+Collecting charset-normalizer~=2.0.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/33/53/b7f6126a2b9fd878b025fe3c40266cfaad696f312165008ce045bffa3fe7/charset_normalizer-2.0.4-py3-none-any.whl (36 kB)
+Collecting oauthlib>=3.0.0
+  Downloading https://rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/packages/packages/e8/5d/9dd1c29e5a786525f6342f6c1d812ed2e37edc653ad297048c1668988053/oauthlib-3.1.1-py2.py3-none-any.whl (146 kB)
+     |████████████████████████████████| 146 kB 125 kB/s
+Building wheels for collected packages: termcolor, future, fvcore
+  Building wheel for termcolor (setup.py) ... done
+  Created wheel for termcolor: filename=termcolor-1.1.0-py3-none-any.whl size=4829 sha256=907d3e6e33a6ac7dddc2a5b44ec82b4e1c77f5ed9e7f5968f742045a5d3f0ef4
+  Stored in directory: /home/lqurszh/.cache/pip/wheels/13/91/9e/cadfb3ca263efa0d6709b45c8fec58e4d11959fd9f9fabbfc9
+  Building wheel for future (setup.py) ... done
+  Created wheel for future: filename=future-0.18.2-py3-none-any.whl size=491059 sha256=3135fc5d5dd886b4b9168ec0ec0a3afacbacebbf307d49104fd35397871e0a65
+  Stored in directory: /home/lqurszh/.cache/pip/wheels/94/e2/e8/418990a68c54cd2812757d19e30131214138d650811cd95bce
+  Building wheel for fvcore (setup.py) ... done
+  Created wheel for fvcore: filename=fvcore-0.1.5.post20210730-py3-none-any.whl size=60620 sha256=bc1e63130878ecd85edc17caf8b2ef9a06fcc21ab15e580339ba40dd738733fd
+  Stored in directory: /home/lqurszh/.cache/pip/wheels/3f/68/5f/e6cabca1b4313a57dae7593477906f21cd8a472f0d58a4826a
+Successfully built termcolor future fvcore
+Installing collected packages: urllib3, pyasn1, idna, charset-normalizer, rsa, requests, pyasn1-modules, oauthlib, cachetools, tqdm, requests-oauthlib, PyYAML, portalocker, google-auth, yacs, werkzeug, termcolor, tensorboard-plugin-wit, tensorboard-data-server, tabulate, python-dateutil, pyparsing, protobuf, markdown, kiwisolver, iopath, grpcio, google-auth-oauthlib, cycler, absl-py, tensorboard, pydot, matplotlib, fvcore, future, cloudpickle, detectron2
+  Running setup.py develop for detectron2
+Successfully installed PyYAML-5.4.1 absl-py-0.13.0 cachetools-4.2.2 charset-normalizer-2.0.4 cloudpickle-1.6.0 cycler-0.10.0 detectron2-0.1.1 future-0.18.2 fvcore-0.1.5.post20210730 google-auth-1.34.0 google-auth-oauthlib-0.4.5 grpcio-1.39.0 idna-3.2 iopath-0.1.9 kiwisolver-1.3.1 markdown-3.3.4 matplotlib-3.4.2 oauthlib-3.1.1 portalocker-2.3.0 protobuf-3.17.3 pyasn1-0.4.8 pyasn1-modules-0.2.8 pydot-1.4.2 pyparsing-2.4.7 python-dateutil-2.8.2 requests-2.26.0 requests-oauthlib-1.3.0 rsa-4.7.2 tabulate-0.8.9 tensorboard-2.5.0 tensorboard-data-server-0.6.1 tensorboard-plugin-wit-1.8.0 termcolor-1.1.0 tqdm-4.62.0 urllib3-1.26.6 werkzeug-2.0.1 yacs-0.1.8
+
