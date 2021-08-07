@@ -25,6 +25,7 @@ from .lvis import register_lvis_instances, get_lvis_instances_meta
 from .cityscapes import load_cityscapes_instances, load_cityscapes_semantic
 from .pascal_voc import register_pascal_voc
 from .crowdhuman import register_crowdhuman_instances
+from .ped import register_ped_instances
 from .builtin_meta import _get_builtin_metadata
 
 
@@ -213,6 +214,22 @@ def register_all_crowdhuman(root="datasets"):
             os.path.join(root, "crowdhuman/annotations/val_gt.json"),
         )
 
+_PREDEFINED_SPLITS_PED = {
+    # "ped_train": ("ped/images/train", "ped/annotations/dhd_traffic_train.json"),
+    "ped_train": ("ped/images/train", "ped/annotations/train.json"),
+    "ped_val":   ("ped/images/train", "ped/annotations/val.json"),
+}
+
+def register_all_ped(root="datasets"):
+    for key, (image_dir, anno_file) in _PREDEFINED_SPLITS_PED.items():
+        register_ped_instances(
+            key,
+            _get_builtin_metadata("ped"),
+            os.path.join(root, anno_file),
+            os.path.join(root, image_dir),
+            os.path.join(root, "ped/annotations/val_gt.json"),
+        )
+
 
 # ==== Predefined splits for PASCAL VOC ===========
 def register_all_pascal_voc(root="datasets"):
@@ -237,3 +254,4 @@ register_all_lvis()
 register_all_cityscapes()
 register_all_pascal_voc()
 register_all_crowdhuman()
+register_all_ped()

@@ -189,7 +189,7 @@ class CommonMetricPrinter(EventWriter):
                 iter=iteration,
                 losses="  ".join(
                     [
-                        "{}: {:.3f}".format(k, v.median(20))
+                        "{}: {:.6f}".format(k, v.median(20))
                         for k, v in storage.histories().items()
                         if "loss" in k
                     ]

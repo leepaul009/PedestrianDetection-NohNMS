@@ -20,6 +20,9 @@ import os
 from collections import OrderedDict
 import torch
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
@@ -82,6 +85,10 @@ class Trainer(DefaultTrainer):
             return PascalVOCDetectionEvaluator(dataset_name)
         elif evaluator_type == "crowdhuman":
             return CrowdHumanEvaluator(dataset_name, cfg, True, output_folder)
+        elif evaluator_type == "ped":
+            return CrowdHumanEvaluator(dataset_name, cfg, True, output_folder)
+            print("evaluator_type: {}, do CrowdHumanEvaluator".format( evaluator_type ))
+
         if len(evaluator_list) == 0:
             raise NotImplementedError(
                 "no Evaluator for the dataset {} with the type {}".format(
@@ -142,7 +149,9 @@ def main(args):
     consider writing your own training loop or subclassing the trainer.
     """
     trainer = Trainer(cfg)
+    ## resume is False in default, then it load "path"
     trainer.resume_or_load(resume=args.resume)
+    # trainer.resume_or_load(resume=True)
     if cfg.TEST.AUG.ENABLED:
         trainer.register_hooks(
             [hooks.EvalHook(0, lambda: trainer.test_with_TTA(cfg, trainer.model))]
