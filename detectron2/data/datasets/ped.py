@@ -75,24 +75,27 @@ def load_ped(anno_file, image_dir):
         #     obj["vis_ratio"] = vis_ratio
 
         #     objs.append(obj)
+        has_ped = False
         for gt_box in anno["annotations"]:
             if gt_box["bbox"][2] < 0 or gt_box["bbox"][3] < 0:
                 continue
             obj = {}
             obj["bbox"] = gt_box["bbox"]
             obj["bbox_mode"] = BoxMode.XYWH_ABS
-            if gt_box["category_id"] != "1" or gt_box["ignore"] != 0:
+            if gt_box["category_id"] != 1 or gt_box["ignore"] != 0:
                 obj["category_id"] = -1
                 ignore_instances += 1
             else:
                 obj["category_id"] = 0
+                has_ped = True
             instances += 1
 
             obj["vis_ratio"] = 1
             objs.append(obj)
         
         record["annotations"] = objs
-        dataset_dicts.append(record)
+        if has_ped:
+            dataset_dicts.append(record)
 
     logger.info(
         "Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(

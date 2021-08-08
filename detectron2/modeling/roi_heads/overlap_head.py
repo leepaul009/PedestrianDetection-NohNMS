@@ -270,6 +270,8 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+            # print("gt_boxes: {}".format( self.gt_boxes ))
+            # print("gt_classes: {}".format( self.gt_classes ))
 
         if proposals[0].has("overlap_iou"):
             self.overlap_iou = cat([p.overlap_iou for p in proposals], dim=0)

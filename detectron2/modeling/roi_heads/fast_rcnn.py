@@ -280,6 +280,9 @@ class FastRCNNOutputs(object):
 
         bg_class_ind = 1  # self.pred_class_logits.shape[1] - 1
 
+        # print( "pred_proposal_deltas: {}, {}".format( self.pred_proposal_deltas.size(),
+        #                                              self.pred_proposal_deltas ) )
+
         # Box delta loss is only computed between the prediction for the gt class k
         # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
         # for non-gt classes and background.
@@ -290,6 +293,8 @@ class FastRCNNOutputs(object):
             1
         )
         
+        # print( "gt_classes: {}".format( self.gt_classes ) )
+
         if cls_agnostic_bbox_reg:
             # pred_proposal_deltas only corresponds to foreground class for agnostic
             gt_class_cols = torch.arange(box_dim, device=device)
@@ -307,6 +312,12 @@ class FastRCNNOutputs(object):
             self.smooth_l1_beta,
             reduction="sum",
         )
+
+        # print( "fg_inds[]: {}".format( fg_inds[:, None] ) )
+        # print( "gt_class_cols: {}".format( gt_class_cols ) )
+        # print( "pred_proposal_deltas[]: {}".format( 
+        #     self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] ) )
+
         # The loss is normalized using the total number of regions (R), not the number
         # of foreground regions even though the box regression loss is only defined on
         # foreground regions. Why? Because doing so gives equal training influence to
