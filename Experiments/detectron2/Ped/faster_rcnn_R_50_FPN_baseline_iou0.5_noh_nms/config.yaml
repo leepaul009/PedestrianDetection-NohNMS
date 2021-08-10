@@ -51,7 +51,7 @@ MODEL:
     - - 256
     - - 512
   BACKBONE:
-    FREEZE_AT: 2
+    FREEZE_AT: 0
     NAME: build_resnet_fpn_backbone_better
   DEVICE: cuda
   FPN:
@@ -270,11 +270,11 @@ MODEL:
     NAME: SemSegFPNHead
     NORM: GN
     NUM_CLASSES: 54
-  WEIGHTS: datasets/model_final_f10217.pkl
+  WEIGHTS: datasets/noh_nms_model_final.pth
 OUTPUT_DIR: ./Experiments/detectron2/Ped/faster_rcnn_R_50_FPN_baseline_iou0.5_noh_nms
 SEED: 11301414
 SOLVER:
-  BASE_LR: 0.0001
+  BASE_LR: 0.0005
   BIAS_LR_FACTOR: 1.0
   CHECKPOINT_PERIOD: 1000
   GAMMA: 0.1

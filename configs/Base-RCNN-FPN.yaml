@@ -1,5 +1,5 @@
 MODEL:
-  META_ARCHITECTURE: "GeneralizedRCNN"
+  META_ARCHITECTURE: "GeneralizedRCNN" ## object name
   BACKBONE:
     NAME: "build_resnet_fpn_backbone"
   RESNETS:
