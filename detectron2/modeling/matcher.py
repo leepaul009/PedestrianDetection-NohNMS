@@ -245,7 +245,7 @@ class MatcherIgnore(object):
 
         assert torch.all(match_quality_matrix >= 0)
 
-        # match_quality_matrix is M (gt) x N (predicted)
+        # match_quality_matrix is M (gt) x N (predicted) # wrong -> should be [pred x gt]?
         # Max over gt elements (dim 0) to find best gt candidate for each prediction
         overlaps_normal, overlaps_normal_indices = match_quality_matrix.sort(descending=True, dim=1)
         overlaps_ignore, overlaps_ignore_indices = ignore_match_quality_matrix.sort(

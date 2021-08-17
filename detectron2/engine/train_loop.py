@@ -174,7 +174,7 @@ class SimpleTrainer(TrainerBase):
     or write your own training loop.
     """
 
-    def __init__(self, model, data_loader, optimizer):
+    def __init__(self, model, data_loader, optimizer, sampler=None):
         """
         Args:
             model: a torch Module. Takes a data from data_loader and returns a
@@ -196,6 +196,8 @@ class SimpleTrainer(TrainerBase):
         self.data_loader = data_loader
         self._data_loader_iter = iter(data_loader)
         self.optimizer = optimizer
+        self.sampler = sampler
+        self.iter_cnt = 0
 
     def run_step(self):
         """
@@ -213,6 +215,33 @@ class SimpleTrainer(TrainerBase):
         If you want to do something with the losses, you can wrap the model.
         """
         loss_dict = self.model(data)
+        
+
+        ### data loader hook:
+        ### update data_dicts returned from sampler
+        if comm.get_world_size() > 1:
+            loss_per_image = self.model.module.roi_heads.loss_per_image
+            device = self.model.module.device
+        else:
+            loss_per_image = self.model.roi_heads.loss_per_image
+            device = self.model.device
+
+        cur_ids = [x["cur_idx"] for x in data]
+        cur_ids = torch.tensor(cur_ids)
+        # cur_ids.to(device)
+        # loss_per_image.to(device)
+
+        if self.iter_cnt % 100 == 0:
+            # img_ids = [x["image_id"] for x in data]
+            print( " * * * * * * R.{} ids: {}, loss_per_image: {}".format(comm.get_rank(), cur_ids, loss_per_image) )
+        self.iter_cnt += 1
+
+        if torch.is_tensor(loss_per_image):
+            if cur_ids.shape[0] == loss_per_image.shape[0]:
+                self.sampler.update_data_dicts(cur_ids, loss_per_image)
+
+
+
         losses = sum(loss_dict.values())
         self._detect_anomaly(losses, loss_dict)
 

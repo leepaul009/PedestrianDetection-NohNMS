@@ -25,6 +25,67 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["register_ped_instances", "load_ped"]
 
+def load_ped_for_multi_cls(anno_file, image_dir):
+    """
+    Return dataset dict.
+    """
+    with open(anno_file, "r") as f:
+        annos = json.load(f)
+    image_num = len(annos)
+    logger.info("Loaded {} images in Ped from {}".format(image_num, anno_file))
+
+    dataset_dicts = []
+    ignore_instances = 0
+    instances = 0
+
+    for img_id, anno in enumerate(annos):
+
+        record = {}
+        record["image_id"] = img_id + 1
+        record["ID"] = anno["file_name"].split('.')[0]
+        record["file_name"] = os.path.join(image_dir, anno["file_name"])
+
+        objs = []
+
+        has_ped = False
+        for gt_box in anno["annotations"]:
+            if gt_box["bbox"][2] < 0 or gt_box["bbox"][3] < 0:
+                continue
+            obj = {}
+            obj["bbox"] = gt_box["bbox"]
+            obj["bbox_mode"] = BoxMode.XYWH_ABS
+            # if gt_box["category_id"] != 1 or gt_box["ignore"] != 0:
+            #     obj["category_id"] = -1
+            #     ignore_instances += 1
+            # else:
+            #     obj["category_id"] = 0
+            #     has_ped = True
+            if gt_box["category_id"] == 1 and gt_box["ignore"] == 0:
+                obj["category_id"] = 0
+                has_ped = True
+            elif gt_box["category_id"] == 2 and gt_box["ignore"] == 0:
+                obj["category_id"] = 1
+                has_ped = True
+            else:
+                obj["category_id"] = -1
+                ignore_instances += 1
+            instances += 1
+
+            obj["vis_ratio"] = 1
+            objs.append(obj)
+        
+        record["annotations"] = objs
+        if has_ped:
+            dataset_dicts.append(record)
+
+    logger.info(
+        "Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(
+            instances, ignore_instances, anno_file
+        )
+    )
+
+    return dataset_dicts
+
 
 def load_ped(anno_file, image_dir):
     """

@@ -90,6 +90,9 @@ class RepeatFactorTrainingSampler(Sampler):
         self._int_part = torch.trunc(rep_factors)
         self._frac_part = rep_factors - self._int_part
 
+        self.additional_ids = None
+        self.additional_losses = None
+
     def _get_repeat_factors(self, dataset_dicts, repeat_thresh):
         """
         Compute (fractional) per-image repeat factors.
@@ -149,6 +152,29 @@ class RepeatFactorTrainingSampler(Sampler):
         indices = []
         for dataset_index, rep_factor in enumerate(rep_factors):
             indices.extend([dataset_index] * int(rep_factor.item()))
+
+        # print(" * * * * * * R.{}  indices:{}".format( self._rank, len(indices) ))
+
+        # train more on the data
+        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
+
+            assert self.additional_ids.shape[0] == self.additional_losses.shape[0], "size not match!"
+
+            sorted_loss, _sorted_key = torch.sort(self.additional_losses, descending=True)
+            sorted_ids = self.additional_ids[_sorted_key]
+            
+            print(" + + + * * * * * * R.{}  indices:{}, sorted_ids: {}, sorted_loss: {}"
+                .format( self._rank, len(indices), sorted_ids[:10], sorted_loss[:10] ))
+
+            sorted_ids = sorted_ids[:800]
+            for import_id in sorted_ids:
+                rep_factor = 10 * 4
+                indices.extend([import_id] * int(rep_factor))
+            
+            # clear 
+            self.additional_ids = None
+            self.additional_losses = None
+
         return torch.tensor(indices, dtype=torch.int64)
 
     def __iter__(self):
@@ -167,6 +193,43 @@ class RepeatFactorTrainingSampler(Sampler):
                 yield from indices[randperm]
             else:
                 yield from indices
+
+    ### public func
+    # cur_ids:          [batch_per_work,]
+    # loss_per_image:   [batch_per_work,]
+    def update_data_dicts(self, cur_ids, loss_per_image):
+        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
+            self.additional_ids    = torch.cat([self.additional_ids,    cur_ids])
+            self.additional_losses = torch.cat([self.additional_losses, loss_per_image])
+
+            assert self.additional_ids.shape[0] == self.additional_losses.shape[0]
+        else: # init
+            self.additional_ids    = cur_ids
+            self.additional_losses = loss_per_image
+
+    def update_data_dicts2(self, cur_ids, loss_per_image):
+        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
+            
+            comm.synchronize()
+
+            self.additional_ids    = torch.cat([self.additional_ids, cur_ids])
+            self.additional_losses = torch.cat([self.additional_losses, loss_per_image])
+
+            assert self.additional_ids.shape[0] == self.additional_losses.shape[0]
+
+            print(" * * * * * * + + + R.{}  ids:{}, loss:{}"
+                .format( self._rank, self.additional_ids, self.additional_losses ))
+
+            self.additional_ids    = comm.all_gather(self.additional_ids)
+            self.additional_losses = comm.all_gather(self.additional_losses)
+            print(" * * * * * * + + + + + + R.{}  ids:{}, loss:{}"
+                .format( self._rank, self.additional_ids, self.additional_losses ))
+
+            comm.synchronize()
+
+        else: # init
+            self.additional_ids    = cur_ids
+            self.additional_losses = loss_per_image
 
 
 class InferenceSampler(Sampler):

@@ -265,6 +265,7 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
         assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
         self.image_shapes = [x.image_size for x in proposals]
 
+        self.loss_per_image = None
         # The following fields should exist only when training.
         if proposals[0].has("gt_boxes"):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
@@ -272,6 +273,16 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
             # print("gt_boxes: {}".format( self.gt_boxes ))
             # print("gt_classes: {}".format( self.gt_classes ))
+            # for debug:
+            pos1 = 0
+            pos2 = 0
+            self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
+            for i, p in enumerate(proposals):
+                pos2 += p.gt_classes.shape[0]
+                self.loss_per_image[i] = F.cross_entropy(self.pred_class_logits[pos1 : pos2], p.gt_classes, reduction="mean").detach()
+                # print( " * * * * * * p.gt_classes.shape = {} vs. ({} {}), loss = {} "
+                #     .format( p.gt_classes.shape, pos1, pos2, self.loss_per_image[i] ) )
+                pos1 = pos2
 
         if proposals[0].has("overlap_iou"):
             self.overlap_iou = cat([p.overlap_iou for p in proposals], dim=0)

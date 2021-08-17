@@ -24,6 +24,7 @@ from detectron2.data import (
     MetadataCatalog,
     build_detection_test_loader,
     build_detection_train_loader,
+    build_detection_train_loader_with_hook,
 )
 from detectron2.evaluation import (
     DatasetEvaluator,
@@ -250,14 +251,21 @@ class DefaultTrainer(SimpleTrainer):
         # Assume these objects must be constructed in this order.
         model = self.build_model(cfg)
         optimizer = self.build_optimizer(cfg, model)
-        data_loader = self.build_train_loader(cfg)
+        if not cfg.DATALOADER.WITH_HOOKS:
+            data_loader = self.build_train_loader(cfg)
+        else:
+            data_loader, sampler = self.build_train_loader_with_hook(cfg)
+            print(" * * * * * * build train loader with hooks.")
 
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
             )
-        super().__init__(model, data_loader, optimizer)
+        if not cfg.DATALOADER.WITH_HOOKS:
+            super().__init__(model, data_loader, optimizer)
+        else:
+            super().__init__(model, data_loader, optimizer, sampler=sampler)
 
         self.scheduler = self.build_lr_scheduler(cfg, optimizer)
         # Assume no other objects need to be checkpointed.
@@ -428,6 +436,10 @@ class DefaultTrainer(SimpleTrainer):
         Overwrite it if you'd like a different data loader.
         """
         return build_detection_train_loader(cfg)
+    
+    @classmethod
+    def build_train_loader_with_hook(cls, cfg):
+        return build_detection_train_loader_with_hook(cfg)
 
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):

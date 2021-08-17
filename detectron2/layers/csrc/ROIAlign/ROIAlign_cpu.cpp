@@ -17,6 +17,10 @@ struct PreCalc {
   T w4;
 };
 
+/// height, width: image; 
+/// iy_upper, ix_upper: bin h/w int
+/// bin_size_h, bin_size_w: bin h/w float;
+/// xx, yy is position in feature map?
 template <typename T>
 void pre_calc_for_bilinear_interpolate(
     const int height,

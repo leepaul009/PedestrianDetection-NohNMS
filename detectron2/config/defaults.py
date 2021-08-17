@@ -120,6 +120,7 @@ _C.DATALOADER.REPEAT_THRESHOLD = 0.0
 # annotations at train time.
 _C.DATALOADER.FILTER_EMPTY_ANNOTATIONS = True
 
+_C.DATALOADER.WITH_HOOKS = False
 # ---------------------------------------------------------------------------- #
 # Backbone options
 # ---------------------------------------------------------------------------- #

@@ -41,6 +41,7 @@ class MapDataset(data.Dataset):
             data = self._map_func(self._dataset[cur_idx])
             if data is not None:
                 self._fallback_candidates.add(cur_idx)
+                data['cur_idx'] = cur_idx
                 return data
 
             # _map_func fails for this idx, use a random new index from the pool
