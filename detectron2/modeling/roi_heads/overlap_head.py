@@ -157,7 +157,8 @@ def fast_rcnn_inference_single_image_with_overlap(
         boxes = boxes[filter_mask]
         overlap_boxes = overlap_boxes[filter_inds[:, 0]]
     scores = scores[filter_mask]
-    overlap_probs = overlap_probs[filter_mask]
+    # overlap_probs = overlap_probs[filter_mask]
+    overlap_probs = overlap_probs[filter_inds[:, 0]]
 
     # Apply per-class NMS
     self_defined_nms_on = True  # False
@@ -407,10 +408,11 @@ class OverlapOutputLayers(nn.Module):
       (2) overlap confidence
     """
 
-    def __init__(self, input_size, sigmoid_on=True, box_dim=4):
+    def __init__(self, input_size, num_classes, sigmoid_on=True, box_dim=4):
         """
         Args:
             input_size (int): channels, or (channels, height, width)
+            num_classes (int):
             box_dim (int): the dimension of bounding boxes.
                 Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
         """
@@ -421,6 +423,8 @@ class OverlapOutputLayers(nn.Module):
 
         self.overlap_prob = nn.Linear(input_size, 1)
         self.overlap_pred = nn.Linear(input_size, box_dim)
+        # self.overlap_prob = nn.Linear(input_size, num_classes)
+        # self.overlap_pred = nn.Linear(input_size, box_dim * num_classes)
 
         nn.init.normal_(self.overlap_prob.weight, std=0.01)
         nn.init.normal_(self.overlap_pred.weight, std=0.001)

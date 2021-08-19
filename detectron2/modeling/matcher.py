@@ -268,7 +268,10 @@ class MatcherIgnore(object):
             gt_assignment_normal * ~ignore_assign_mask + gt_assignment_ignore * ignore_assign_mask
         )
         labels = gt_classes.new_ones(gt_classes.shape[0]) * -1
-        labels[gt_classes == 0] = 1
+        # labels[gt_classes == 0] = 1
+        # gt_classes store each annotation's label, shape = number of annotations
+        # -1 indicates ignored label
+        labels[gt_classes != -1] = 1
         labels = labels[gt_assignment]
 
         fg_mask = (max_overlaps >= self.fg_thresholds) * (labels != self.ignore_label)

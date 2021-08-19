@@ -236,7 +236,7 @@ class SimpleTrainer(TrainerBase):
             print( " * * * * * * R.{} ids: {}, loss_per_image: {}".format(comm.get_rank(), cur_ids, loss_per_image) )
         self.iter_cnt += 1
 
-        if torch.is_tensor(loss_per_image):
+        if torch.is_tensor(loss_per_image) and self.sampler is not None:
             if cur_ids.shape[0] == loss_per_image.shape[0]:
                 self.sampler.update_data_dicts(cur_ids, loss_per_image)
 

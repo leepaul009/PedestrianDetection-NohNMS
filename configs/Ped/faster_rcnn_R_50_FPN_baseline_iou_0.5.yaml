@@ -26,7 +26,7 @@ MODEL:
   ROI_BOX_HEAD:
     SMOOTH_L1_BETA: 1.0
   ROI_HEADS:
-    NUM_CLASSES: 1 # to update from 1 -> 2
+    NUM_CLASSES: 2 # to update from 1 -> 2
     IGNORE_IOA: True
     POSITIVE_FRACTION: 0.5
     # PROPOSAL_APPEND_GT: True # new_parameter

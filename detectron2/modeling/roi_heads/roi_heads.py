@@ -198,14 +198,15 @@ class ROIHeads(torch.nn.Module):
             gt_classes[matched_labels == -1] = -1
         else:
             gt_classes = torch.zeros_like(matched_idxs) + self.num_classes
-        if False:
+        # more than 1 class
+        if self.num_classes > 1:
             sampled_fg_idxs, sampled_bg_idxs = subsample_labels(
                 gt_classes,
                 self.batch_size_per_image,
                 self.positive_sample_fraction,
-                self.num_classes,
+                self.num_classes, # bg_label
             )
-        else:
+        else: # only 1 class
             sampled_fg_idxs, sampled_bg_idxs = bernoulli_subsample_labels(
                 gt_classes,
                 self.batch_size_per_image,
@@ -257,8 +258,8 @@ class ROIHeads(torch.nn.Module):
         if self.proposal_append_gt:
             # non_ignore_gt_boxes = [x.gt_boxes[x.gt_classes != -1] for x in targets]
             gt_boxes = [x.gt_boxes for x in targets]
-            for it in targets:
-                print(" [roi_heads] gt_boxes.shape = {} ".format( it.gt_boxes.tensor.shape ))
+            # for it in targets:
+            #     print(" [roi_heads] gt_boxes.shape = {} ".format( it.gt_boxes.tensor.shape ))
             proposals = add_ground_truth_to_proposals(gt_boxes, proposals)
 
         proposals_with_gt = []
@@ -276,9 +277,9 @@ class ROIHeads(torch.nn.Module):
                 ignore_match_quality_matrix_t = pairwise_ioa(
                     gt_boxes, proposals_per_image.proposal_boxes
                 ).transpose(1, 0)
-                print(" [roi_heads] match_quality_matrix_t.shape = {}, ignore_match_quality_matrix_t.shape = {} "
-                    .format( match_quality_matrix_t.shape, 
-                             ignore_match_quality_matrix_t.shape ))
+                # print(" [roi_heads] match_quality_matrix_t.shape = {}, ignore_match_quality_matrix_t.shape = {} "
+                #     .format( match_quality_matrix_t.shape, 
+                #              ignore_match_quality_matrix_t.shape ))
 
                 gt_ignore_mask = targets_per_image.gt_classes.eq(-1).repeat(
                     ignore_match_quality_matrix_t.shape[0], 1
@@ -287,14 +288,14 @@ class ROIHeads(torch.nn.Module):
                 ignore_match_quality_matrix_t *= gt_ignore_mask
 
                 # MatcherIgnore
-                # matched_idxs [pred,]: best matched label
+                # matched_idxs [pred,]: best match(index of M annotations)
                 # matched_labels [pred,]: is fg, or bg, or ignored fg
                 matched_idxs, matched_labels = self.proposal_matcher(
                     match_quality_matrix_t,
                     ignore_match_quality_matrix_t,
                     targets_per_image.gt_classes,
                 )
-                print(" [roi_heads] matched_idxs = {}, matched_labels = {} ".format(matched_idxs, matched_labels))
+                # print(" [roi_heads] matched_idxs = {}, matched_labels = {} ".format(matched_idxs, matched_labels))
             elif False:
                 gt_boxes = targets_per_image.gt_boxes[targets_per_image.gt_classes != -1]
                 ignore_gt_boxes = targets_per_image.gt_boxes[targets_per_image.gt_classes == -1]
@@ -323,10 +324,14 @@ class ROIHeads(torch.nn.Module):
                     targets_per_image.gt_boxes, proposals_per_image.proposal_boxes
                 )
                 matched_idxs, matched_labels = self.proposal_matcher(match_quality_matrix)
+            # resample proposals with postive and negative rate, 
+            # gt_classes: label(-1,0,1...N; N=bg) of resampled proposals
             sampled_idxs, gt_classes = self._sample_proposals(
                 matched_idxs, matched_labels, targets_per_image.gt_classes
             )
 
+            # previous proposals_per_image has "proposal_boxes" and "objectness_logits", 
+            # after re-sampled, size of both are reduced.
             # Set target attributes of the sampled proposals:
             proposals_per_image = proposals_per_image[sampled_idxs]
             proposals_per_image.gt_classes = gt_classes
@@ -352,13 +357,14 @@ class ROIHeads(torch.nn.Module):
             num_fg_samples.append(gt_classes.numel() - num_bg_samples[-1])
 
             # overlap box select
-            matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True)
-            if matched_vals.size(0) > 1:
-                overlap_iou = matched_vals[1, :]
-                overlap_gt_idx = sorted_idx[1, :]
-            else:
-                overlap_iou = matched_vals.new_zeros(matched_vals.size(1))
-                overlap_gt_idx = sorted_idx[0, :]
+            # for each proposal, either "get second best match" or "get best match itself" for overlap target
+            matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True) # [GT, Pred]
+            if matched_vals.size(0) > 1: # GT>=2
+                overlap_iou = matched_vals[1, :]  # [Pred,]
+                overlap_gt_idx = sorted_idx[1, :] # [Pred,]
+            else: # GT==1
+                overlap_iou = matched_vals.new_zeros(matched_vals.size(1)) # [Pred,]
+                overlap_gt_idx = sorted_idx[0, :] # [Pred,]
 
             selected_overlap_iou = overlap_iou[sampled_idxs]
             selected_overlap_gt_idx = overlap_gt_idx[sampled_idxs]
@@ -633,7 +639,9 @@ class StandardROIHeads(ROIHeads):
                 ShapeSpec(channels=in_channels, height=pooler_resolution, width=pooler_resolution),
             )
         self.overlap_predictor = OverlapOutputLayers(
-            self.box_head.output_size, sigmoid_on=self.sigmoid_on
+            self.box_head.output_size, 
+            num_classes=self.num_classes, 
+            sigmoid_on=self.sigmoid_on
         )
 
     def _init_mask_head(self, cfg, input_shape):
@@ -762,15 +770,15 @@ class StandardROIHeads(ROIHeads):
         features = [features[f] for f in self.in_features]
 
         if self.overlap_enable:
-            for f in features:
-                print( " * * * * * * [roi_head] feature.shape = {} ".format( f.shape ) )
-            for p in proposals:
-                print( " * * * * * * [roi_head] proposal_boxe.shape = {} ".format( p.proposal_boxes.tensor.shape ) )
+            # for f in features:
+            #     print( " * * * * * * [roi_head] feature.shape = {} ".format( f.shape ) )
+            # for p in proposals:
+            #     print( " * * * * * * [roi_head] proposal_boxe.shape = {} ".format( p.proposal_boxes.tensor.shape ) )
 
             roi_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
-            print( " * * * * * * [roi_head] roi_features.shape = {} ".format( roi_features.shape ) )
+            # print( " * * * * * * [roi_head] roi_features.shape = {} ".format( roi_features.shape ) )
             box_features = self.box_head(roi_features)
-            print( " * * * * * * [roi_head] box_features.shape = {} ".format( box_features.shape ) )
+            # print( " * * * * * * [roi_head] box_features.shape = {} ".format( box_features.shape ) )
 
             if self.build_on_roi_feature:
                 overlap_features = self.overlap_head(roi_features)
@@ -781,8 +789,11 @@ class StandardROIHeads(ROIHeads):
             del box_features
             del overlap_features
 
-            print( " * * * * * * [roi_head] pred_class_logits.shape = {}, pred_proposal_deltas.shape = {} "
-                .format( pred_class_logits.shape, pred_proposal_deltas.shape ) )
+            # print( " * * * * * * @ [roi_head] pred_class_logits.shape = {} ".format( pred_class_logits.shape ) )
+            # print( " * * * * * * @ [roi_head] pred_proposal_deltas.shape = {} ".format( pred_proposal_deltas.shape ) )
+            # print( " * * * * * * @ [roi_head] pred_overlap_deltas.shape = {} ".format( pred_overlap_deltas.shape ) )
+            # print( " * * * * * * @ [roi_head] pred_overlap_prob.shape = {} ".format( pred_overlap_prob.shape ) )
+            
             outputs = OverlapFastRCNNOutputs(
                 self.box2box_transform,
                 pred_class_logits,

@@ -86,8 +86,9 @@ class Trainer(DefaultTrainer):
         elif evaluator_type == "crowdhuman":
             return CrowdHumanEvaluator(dataset_name, cfg, True, output_folder)
         elif evaluator_type == "ped":
+            # print("evaluator_type: {}, do CrowdHumanEvaluator".format( evaluator_type ))
             return CrowdHumanEvaluator(dataset_name, cfg, True, output_folder)
-            print("evaluator_type: {}, do CrowdHumanEvaluator".format( evaluator_type ))
+     
 
         if len(evaluator_list) == 0:
             raise NotImplementedError(

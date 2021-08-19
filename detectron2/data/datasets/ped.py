@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["register_ped_instances", "load_ped"]
 
-def load_ped_for_multi_cls(anno_file, image_dir):
+def load_ped(anno_file, image_dir):
     """
     Return dataset dict.
     """
@@ -87,7 +87,7 @@ def load_ped_for_multi_cls(anno_file, image_dir):
     return dataset_dicts
 
 
-def load_ped(anno_file, image_dir):
+def load_ped_for_two_cls(anno_file, image_dir):
     """
     Return dataset dict.
     """
