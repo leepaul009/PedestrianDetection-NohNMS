@@ -131,8 +131,8 @@ class DefaultAnchorGenerator(nn.Module):
         anchors = []
         for size, stride, base_anchors in zip(grid_sizes, self.strides, self.cell_anchors):
             shift_x, shift_y = _create_grid_offsets(size, stride, self.offset, base_anchors.device)
-            shifts = torch.stack((shift_x, shift_y, shift_x, shift_y), dim=1)
-
+            shifts = torch.stack((shift_x, shift_y, shift_x, shift_y), dim=1) # [N, 4], N = number of grid cells
+            # [N,1,4] + [1,3,4] => [N,3,4], last dim 4 indicates {x1,y1,x2,y2}
             anchors.append((shifts.view(-1, 1, 4) + base_anchors.view(1, -1, 4)).reshape(-1, 4))
 
         return anchors

@@ -104,6 +104,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         metrics = ["ALL"]
         results = {}
         ret_results = OrderedDict()
+        # 
         for gt_json in self._metadata.json_file:
             name = gt_json.split("/")[-1].split(".")[0]
             for id_setup in range(len(metrics)):
@@ -128,7 +129,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
 def coco_json_to_submit_format(results):
     submit_results = []
     for result in results:
-        submit_result = {"score": result["score"], "tag": 1, "box": result["bbox"]}
+        submit_result = {"score": result["score"], "cls": result["category_id"], "tag": 1, "box": result["bbox"]}
         submit_results.append(submit_result)
     return submit_results
 

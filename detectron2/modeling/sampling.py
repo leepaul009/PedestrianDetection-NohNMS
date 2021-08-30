@@ -31,7 +31,8 @@ def subsample_labels(labels, num_samples, positive_fraction, bg_label):
         pos_idx, neg_idx (Tensor):
             1D vector of indices. The total length of both is `num_samples` or fewer.
     """
-    positive = torch.nonzero((labels != -1) & (labels != bg_label)).squeeze(1)
+    # VERY IMPORTANT!!!!!!!!
+    positive = torch.nonzero((labels != -1) & (labels != bg_label)).squeeze(1) # [n_pred',]
     negative = torch.nonzero(labels == bg_label).squeeze(1)
 
     num_pos = int(num_samples * positive_fraction)

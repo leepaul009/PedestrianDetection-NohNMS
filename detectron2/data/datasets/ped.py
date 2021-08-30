@@ -270,6 +270,7 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
 
     # 2. Optionally, add metadata about this dataset,
     # since they might be useful in evaluation, visualization or logging
+    # json_file is used in evaluation, ex. crowdhuman_evaluation.py line 107
     MetadataCatalog.get(name).set(
         json_file=val_json_files,
         anno_file=anno_file,
@@ -284,6 +285,86 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
                 convert_to_coco_dict(anno_file, image_dir, val_json_file, is_clip=is_clip)
 
 def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
+    from tqdm import tqdm
+
+    # anno_lines = open(anno_file, "r").readlines()
+    # annos = [json.loads(line.strip()) for line in anno_lines]
+    with open(anno_file, "r") as f:
+        annos = json.load(f)
+
+    print("Converting dataset dicts into COCO format")
+
+    images = []
+    annotations = []
+    outside_num, clip_num = 0, 0
+    for img_id, anno in tqdm(enumerate(annos)):
+        # filename = os.path.join(image_dir, anno["ID"] + ".jpg")
+        filename = os.path.join(image_dir, anno["file_name"])
+        img = cv2.imread(filename)
+        height, width = img.shape[:2]
+
+        image = {"id": img_id + 1, "file_name": filename, "height": height, "width": width}
+        images.append(image)
+
+        for gt_box in anno["annotations"]:
+            annotation = {}
+            x1, y1, w, h = gt_box["bbox"]
+            bbox = [x1, y1, x1 + w, y1 + h]
+            annotation["id"] = len(annotations) + 1
+            annotation["image_id"] = image["id"]
+
+            annotation["area"] = gt_box["bbox"][2] * gt_box["bbox"][3]
+            if gt_box["category_id"] != 1 or gt_box["category_id"] != 2 or gt_box["ignore"] == 1:
+                annotation["ignore"] = 1
+            elif outside(bbox, height, width):
+                annotation["ignore"] = 1
+                outside_num += 1
+            elif is_clip and (
+                (bbox[0] < 0) or (bbox[1] < 0) or (bbox[2] > width) or (bbox[3] > height)
+            ):
+                bbox = clip_bbox(bbox, [height, width])
+                clip_num += 1
+                annotation["ignore"] = 0
+            else:
+                annotation["ignore"] = 0
+
+            x1, y1, x2, y2 = bbox
+            bbox = [x1, y1, x2 - x1, y2 - y1]
+
+            annotation["category_id"] = 1 if gt_box["category_id"] == 1 else 2
+            annotation["bbox"] = [round(float(x), 3) for x in bbox]
+            annotation["height"] = annotation["bbox"][3]
+            # vis_ratio = (gt_box["vbox"][2] * gt_box["vbox"][3]) / float(annotation["area"])
+            annotation["vis_ratio"] = 1 # vis_ratio
+            annotation["iscrowd"] = 0
+            annotations.append(annotation)
+
+    print("outside num: {}, clip num: {}".format(outside_num, clip_num))
+    info = {
+        "date_created": str(datetime.datetime.now()),
+        "description": "Automatically generated CrowdHuman json file for Detectron2.",
+    }
+
+    categories = [{"id": 1, "name": "pedestrian"}]
+
+    coco_dict = {
+        "info": info,
+        "images": images,
+        "annotations": annotations,
+        "categories": categories,
+        "licenses": None,
+    }
+    try:
+        json.dump(coco_dict, open(json_file, "w"))
+    except:
+        print("json dump falied in crowdhuman convert processing.")
+        from IPython import embed
+
+        embed()
+
+
+
+def convert_to_coco_dict_1_cls(anno_file, image_dir, json_file, is_clip=True):
     from tqdm import tqdm
 
     # anno_lines = open(anno_file, "r").readlines()

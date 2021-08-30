@@ -1,4 +1,5 @@
-_BASE_: "./faster_rcnn_R_50_FPN_baseline_iou_0.5.yaml"
+# faster_rcnn_R_50_FPN_baseline_iou_0.5_noh_nms
+_BASE_: "./base.yaml"
 MODEL:
   OVERLAP_BOX_HEAD:
     ENABLE: True

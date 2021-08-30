@@ -22,6 +22,7 @@ import torch
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+# os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
@@ -132,7 +133,6 @@ def setup(args):
 
 def main(args):
     cfg = setup(args)
-
     if args.eval_only:
         model = Trainer.build_model(cfg)
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(

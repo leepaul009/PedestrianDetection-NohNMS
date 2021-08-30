@@ -598,6 +598,7 @@ class RPNOutputs(object):
             # Concatenate all anchors to shape (N*Hi*Wi*A, B)
             # type(anchors_i[0]) is Boxes (B = 4) or RotatedBoxes (B = 5)
             anchors_i = type(anchors_i[0]).cat(anchors_i)
+            # proposals_i.shape = [np, 4], 4 dim indicates {x1,y1,x2,y2}
             proposals_i = self.box2box_transform.apply_deltas(
                 pred_anchor_deltas_i, anchors_i.tensor
             )

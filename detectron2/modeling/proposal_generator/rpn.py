@@ -80,10 +80,16 @@ class StandardRPNHead(nn.Module):
         pred_anchor_deltas = []
         for x in features:
             t = F.relu(self.conv(x))
-            pred_objectness_logits.append(self.objectness_logits(t))
-            pred_anchor_deltas.append(self.anchor_deltas(t))
+            pred_objectness_logits.append(self.objectness_logits(t)) # [N, 3, H, W]
+            pred_anchor_deltas.append(self.anchor_deltas(t)) # [N, 3*4, H, W]
         return pred_objectness_logits, pred_anchor_deltas
 
+    def freeze(self):
+        for p in self.parameters():
+            p.requires_grad = False
+        # from detectron2.layers import FrozenBatchNorm2d
+        # FrozenBatchNorm2d.convert_frozen_batchnorm(self)
+        return self
 
 @RPN_HEAD_REGISTRY.register()
 class SeparateRPNHead(nn.Module):
@@ -188,6 +194,7 @@ class RPN(nn.Module):
             update_matches=self.update_matches,
         )
         self.rpn_head = build_rpn_head(cfg, [input_shape[f] for f in self.in_features])
+        # self.rpn_head.freeze()
 
     def forward(self, images, features, gt_instances=None):
         """
@@ -202,9 +209,12 @@ class RPN(nn.Module):
 
         Returns:
             proposals: list[Instances]: contains fields "proposal_boxes", "objectness_logits"
+                proposal_boxes: box{tensor [p, 4]}
+                objectness_logits: tensor [p]
             loss: dict[Tensor] or None
         """
         # gt_boxes = [x.gt_boxes for x in gt_instances] if gt_instances is not None else None
+        # x.gt_classes: [num_anns_per_img], anns per image
         gt_boxes = (
             [x.gt_boxes[x.gt_classes != -1] for x in gt_instances]
             if gt_instances is not None
@@ -218,7 +228,7 @@ class RPN(nn.Module):
         del gt_instances
         if isinstance(features, dict):
             features = [features[f] for f in self.in_features]
-            pred_objectness_logits, pred_anchor_deltas = self.rpn_head(features)
+            pred_objectness_logits, pred_anchor_deltas = self.rpn_head(features) # StandardRPNHead
             anchors = self.anchor_generator(features)
         else:
             cls_features, reg_features = features
@@ -256,7 +266,7 @@ class RPN(nn.Module):
             # joint training with roi heads. This approach ignores the derivative
             # w.r.t. the proposal boxes’ coordinates that are also network
             # responses, so is approximate.
-            if self.top_proposals_all_level:
+            if self.top_proposals_all_level: # base.yaml
                 proposals = find_top_rpn_proposals_all_level(
                     outputs.predict_proposals(),
                     outputs.predict_objectness_logits(),

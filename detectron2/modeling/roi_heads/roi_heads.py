@@ -176,11 +176,11 @@ class ROIHeads(torch.nn.Module):
         sample the proposals and set their classification labels.
 
         Args:
-            matched_idxs (Tensor): a vector of length N, each is the best-matched
+            matched_idxs (Tensor): best-matched annotation index. a vector of length N, each is the best-matched
                 gt index in [0, M) for each proposal.
             matched_labels (Tensor): a vector of length N, the matcher's label
                 (one of cfg.MODEL.ROI_HEADS.IOU_LABELS) for each proposal.
-            gt_classes (Tensor): a vector of length M.
+            gt_classes (Tensor): gt annotations. a vector of length M.
 
         Returns:
             Tensor: a vector of indices of sampled proposals. Each is in [0, N).
@@ -191,7 +191,7 @@ class ROIHeads(torch.nn.Module):
         has_gt = gt_classes.numel() > 0
         # Get the corresponding GT for each proposal
         if has_gt:
-            gt_classes = gt_classes[matched_idxs]
+            gt_classes = gt_classes[matched_idxs] # [n_pred,]
             # Label unmatched proposals (0 label from matcher) as background (label=num_classes)
             gt_classes[matched_labels == 0] = self.num_classes
             # Label ignore proposals (-1 label)
@@ -200,6 +200,7 @@ class ROIHeads(torch.nn.Module):
             gt_classes = torch.zeros_like(matched_idxs) + self.num_classes
         # more than 1 class
         if self.num_classes > 1:
+            # sampled_fg_idxs: is the idxs of gt_classes which r.g.t fg
             sampled_fg_idxs, sampled_bg_idxs = subsample_labels(
                 gt_classes,
                 self.batch_size_per_image,
@@ -259,7 +260,7 @@ class ROIHeads(torch.nn.Module):
             # non_ignore_gt_boxes = [x.gt_boxes[x.gt_classes != -1] for x in targets]
             gt_boxes = [x.gt_boxes for x in targets]
             # for it in targets:
-            #     print(" [roi_heads] gt_boxes.shape = {} ".format( it.gt_boxes.tensor.shape ))
+            #     print(" [roi_heads] gt_boxes.shape = {} ".format( it.gt_boxes.tensor.shape )) # [n_anns, 4]
             proposals = add_ground_truth_to_proposals(gt_boxes, proposals)
 
         proposals_with_gt = []
@@ -272,8 +273,8 @@ class ROIHeads(torch.nn.Module):
             if self.ignore_ioa:
                 gt_boxes = targets_per_image.gt_boxes
                 match_quality_matrix = pairwise_iou(gt_boxes, proposals_per_image.proposal_boxes)
-                match_quality_matrix_t = match_quality_matrix.transpose(1, 0)
-                # IoU to target box, [Pred x GT]
+                match_quality_matrix_t = match_quality_matrix.transpose(1, 0) # =>[n_preds, n_anns]
+                # IOA: inter / proposal_boxes, [Pred x GT]or[n_preds, n_anns]
                 ignore_match_quality_matrix_t = pairwise_ioa(
                     gt_boxes, proposals_per_image.proposal_boxes
                 ).transpose(1, 0)
@@ -283,13 +284,13 @@ class ROIHeads(torch.nn.Module):
 
                 gt_ignore_mask = targets_per_image.gt_classes.eq(-1).repeat(
                     ignore_match_quality_matrix_t.shape[0], 1
-                )
+                ) # => [n_preds, n_anns]
                 match_quality_matrix_t *= ~gt_ignore_mask
                 ignore_match_quality_matrix_t *= gt_ignore_mask
 
                 # MatcherIgnore
-                # matched_idxs [pred,]: best match(index of M annotations)
-                # matched_labels [pred,]: is fg, or bg, or ignored fg
+                # matched_idxs [pred,]: best matched annotatioin index
+                # matched_labels [pred,]: indicate this pred is fg, bg or ignored
                 matched_idxs, matched_labels = self.proposal_matcher(
                     match_quality_matrix_t,
                     ignore_match_quality_matrix_t,
@@ -325,7 +326,8 @@ class ROIHeads(torch.nn.Module):
                 )
                 matched_idxs, matched_labels = self.proposal_matcher(match_quality_matrix)
             # resample proposals with postive and negative rate, 
-            # gt_classes: label(-1,0,1...N; N=bg) of resampled proposals
+            # after resample, only predictions matched as fg/bg exist
+            # gt_classes: resampled, shape=[n_pred',], contains category index of predictions
             sampled_idxs, gt_classes = self._sample_proposals(
                 matched_idxs, matched_labels, targets_per_image.gt_classes
             )
@@ -339,7 +341,7 @@ class ROIHeads(torch.nn.Module):
             # We index all the attributes of targets that start with "gt_"
             # and have not been added to proposals yet (="gt_classes").
             if has_gt:
-                sampled_targets = matched_idxs[sampled_idxs]
+                sampled_targets = matched_idxs[sampled_idxs] # best matched annotatioin index
                 # NOTE: here the indexing waste some compute, because heads
                 # like masks, keypoints, etc, will filter the proposals again,
                 # (by foreground/background, or number of keypoints in the image, etc)
@@ -358,13 +360,13 @@ class ROIHeads(torch.nn.Module):
 
             # overlap box select
             # for each proposal, either "get second best match" or "get best match itself" for overlap target
-            matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True) # [GT, Pred]
-            if matched_vals.size(0) > 1: # GT>=2
-                overlap_iou = matched_vals[1, :]  # [Pred,]
-                overlap_gt_idx = sorted_idx[1, :] # [Pred,]
-            else: # GT==1
-                overlap_iou = matched_vals.new_zeros(matched_vals.size(1)) # [Pred,]
-                overlap_gt_idx = sorted_idx[0, :] # [Pred,]
+            matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True) # [n_ann, n_pred]
+            if matched_vals.size(0) > 1: # n_ann>=2
+                overlap_iou = matched_vals[1, :]  # [n_pred,]
+                overlap_gt_idx = sorted_idx[1, :] # [n_pred,]
+            else: # n_ann==1
+                overlap_iou = matched_vals.new_zeros(matched_vals.size(1)) # [n_pred,]
+                overlap_gt_idx = sorted_idx[0, :] # [n_pred,]
 
             selected_overlap_iou = overlap_iou[sampled_idxs]
             selected_overlap_gt_idx = overlap_gt_idx[sampled_idxs]

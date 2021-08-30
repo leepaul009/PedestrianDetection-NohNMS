@@ -245,18 +245,17 @@ class MatcherIgnore(object):
 
         assert torch.all(match_quality_matrix >= 0)
 
-        # match_quality_matrix is M (gt) x N (predicted) # wrong -> should be [pred x gt]?
+        # match_quality_matrix is M (gt) x N (predicted) # wrong -> should be [n_pred x n_anns]
         # Max over gt elements (dim 0) to find best gt candidate for each prediction
         overlaps_normal, overlaps_normal_indices = match_quality_matrix.sort(descending=True, dim=1)
-        overlaps_ignore, overlaps_ignore_indices = ignore_match_quality_matrix.sort(
-            descending=True, dim=1
-        )
+        overlaps_ignore, overlaps_ignore_indices = ignore_match_quality_matrix.sort(descending=True, dim=1)
 
         # gt max and indices, ignore max and indices
+        # top_k = 1, thus => [n_pred]
         max_overlaps_normal = overlaps_normal[:, :top_k].flatten()
-        gt_assignment_normal = overlaps_normal_indices[:, :top_k].flatten()
+        gt_assignment_normal = overlaps_normal_indices[:, :top_k].flatten() # matched ann for preds
         max_overlaps_ignore = overlaps_ignore[:, :top_k].flatten()
-        gt_assignment_ignore = overlaps_ignore_indices[:, :top_k].flatten()
+        gt_assignment_ignore = overlaps_ignore_indices[:, :top_k].flatten() # matched ann(ignored) for preds
 
         ignore_assign_mask = (max_overlaps_normal < self.fg_thresholds) * (
             max_overlaps_ignore > max_overlaps_normal
@@ -267,12 +266,12 @@ class MatcherIgnore(object):
         gt_assignment = (
             gt_assignment_normal * ~ignore_assign_mask + gt_assignment_ignore * ignore_assign_mask
         )
+        # gt_classes is a list of annotations(its label) its length is the number of annotations
         labels = gt_classes.new_ones(gt_classes.shape[0]) * -1
         # labels[gt_classes == 0] = 1
-        # gt_classes store each annotation's label, shape = number of annotations
-        # -1 indicates ignored label
+        # VERY IMPORTANT!!!!!!!!
         labels[gt_classes != -1] = 1
-        labels = labels[gt_assignment]
+        labels = labels[gt_assignment] # => [n_pred]
 
         fg_mask = (max_overlaps >= self.fg_thresholds) * (labels != self.ignore_label)
         bg_mask = (max_overlaps < self.bg_thresholds) * (max_overlaps >= 0.0)
