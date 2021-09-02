@@ -304,6 +304,9 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
         loss_overlap_reg = self.overlap_smooth_l1_loss(fg_inds)
         loss_overlap_prob = self.overlap_prob_loss()
 
+        # print(" * * fg_inds={}, overlap_iou={}, loss_overlap_reg_final={}"
+        #     .format( fg_inds, self.overlap_iou, loss_overlap_reg ))
+
         overlap_loss_dict = {
             "loss_overlap_reg": loss_overlap_reg,
             "loss_overlap_prob": loss_overlap_prob,
@@ -321,6 +324,9 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
             self.smooth_l1_beta,
             reduction="sum",
         )
+
+        # print(" * * trained_idx={}, loss_overlap_reg={}".format( trained_idx, loss_overlap_reg ))
+
         if self.uniform_reg_divisor:
             return loss_overlap_reg / (self.gt_classes.numel() + 1e-6)
         else:

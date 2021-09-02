@@ -25,12 +25,14 @@ from detectron2.data import (
     build_detection_test_loader,
     build_detection_train_loader,
     build_detection_train_loader_with_hook,
+    build_detection_infer_loader,
 )
 from detectron2.evaluation import (
     DatasetEvaluator,
     inference_on_dataset,
     print_csv_format,
     verify_results,
+    PedEvaluator,
 )
 from detectron2.modeling import build_model
 from detectron2.solver import build_lr_scheduler, build_optimizer
@@ -61,6 +63,7 @@ def default_argument_parser():
         help="whether to attempt to resume from the checkpoint directory",
     )
     parser.add_argument("--eval-only", action="store_true", help="perform evaluation only")
+    parser.add_argument("--infer-only", action="store_true", help="perform infer only")
     parser.add_argument("--num-gpus", type=int, default=1, help="number of gpus *per machine*")
     parser.add_argument("--num-machines", type=int, default=1)
     parser.add_argument(
@@ -127,9 +130,12 @@ def default_setup(cfg, args):
 
     # cudnn benchmark has large overhead. It shouldn't be used considering the small size of
     # typical validation set.
-    if not (hasattr(args, "eval_only") and args.eval_only):
+    # if not (hasattr(args, "eval_only") and args.eval_only):
+    #     torch.backends.cudnn.benchmark = cfg.CUDNN_BENCHMARK
+    do_eval = (hasattr(args, "eval_only") and args.eval_only)
+    do_infer = (hasattr(args, "infer_only") and args.infer_only)
+    if not (do_eval or do_infer):
         torch.backends.cudnn.benchmark = cfg.CUDNN_BENCHMARK
-
 
 class DefaultPredictor:
     """
@@ -336,6 +342,7 @@ class DefaultTrainer(SimpleTrainer):
         if comm.is_main_process():
             ret.append(hooks.PeriodicCheckpointer(self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD))
 
+        ### PEDTODO: bad eva, has bug
         def test_and_save_results():
             self._last_eval_results = self.test(self.cfg, self.model)
             return self._last_eval_results
@@ -454,6 +461,10 @@ class DefaultTrainer(SimpleTrainer):
         return build_detection_test_loader(cfg, dataset_name)
 
     @classmethod
+    def build_infer_loader(cls, cfg, dataset_name):
+        return build_detection_infer_loader(cfg, dataset_name)
+
+    @classmethod
     def build_evaluator(cls, cfg, dataset_name):
         """
         Returns:
@@ -517,4 +528,53 @@ class DefaultTrainer(SimpleTrainer):
 
         if len(results) == 1:
             results = list(results.values())[0]
+        return results
+
+
+    @classmethod
+    def infer(cls, cfg, model, evaluators=None):
+
+        logger = logging.getLogger(__name__)
+
+        # if isinstance(evaluators, DatasetEvaluator):
+        #     evaluators = [evaluators]
+        # if evaluators is not None:
+        #     assert len(cfg.DATASETS.TEST) == len(evaluators), "{} != {}".format(
+        #         len(cfg.DATASETS.TEST), len(evaluators)
+        #     )
+
+        results = OrderedDict()
+        for idx, dataset_name in enumerate(cfg.DATASETS.INFER):
+            # data_loader = cls.build_test_loader(cfg, dataset_name)
+            data_loader = cls.build_infer_loader(cfg, dataset_name)
+
+            # if evaluators is not None:
+            #     evaluator = evaluators[idx]
+            # else:
+            #     try:
+            #         evaluator = cls.build_evaluator(cfg, dataset_name)
+            #     except NotImplementedError:
+            #         logger.warn(
+            #             "No evaluator found. Use `DefaultTrainer.test(evaluators=)`, "
+            #             "or implement its `build_evaluator` method."
+            #         )
+            #         results[dataset_name] = {}
+            #         continue
+            
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+            evaluator = PedEvaluator(dataset_name, cfg, distributed=True, output_dir=output_folder)
+            results_i = inference_on_dataset(model, data_loader, evaluator)
+            results[dataset_name] = results_i
+
+            # if comm.is_main_process():
+            #     assert isinstance(
+            #         results_i, dict
+            #     ), "Evaluator must return a dict on the main process. Got {} instead.".format(
+            #         results_i
+            #     )
+            #     logger.info("Evaluation results for {} in csv format:".format(dataset_name))
+            #     print_csv_format(results_i)
+
+        # if len(results) == 1:
+        #     results = list(results.values())[0]
         return results

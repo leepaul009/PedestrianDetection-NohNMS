@@ -22,7 +22,8 @@ import torch
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-# os.environ["CUDA_VISIBLE_DEVICES"]="2"
+# os.environ["CUDA_VISIBLE_DEVICES"]="0"
+# os.environ["CUDA_VISIBLE_DEVICES"]="1,2,3"
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
@@ -143,6 +144,15 @@ def main(args):
             verify_results(cfg, res)
         if cfg.TEST.AUG.ENABLED:
             res.update(Trainer.test_with_TTA(cfg, model))
+        return res
+
+    if args.infer_only:
+        print(" do inference .................")
+        model = Trainer.build_model(cfg)
+        DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
+            cfg.MODEL.WEIGHTS, resume=False
+        )
+        res = Trainer.infer(cfg, model)
         return res
 
     """

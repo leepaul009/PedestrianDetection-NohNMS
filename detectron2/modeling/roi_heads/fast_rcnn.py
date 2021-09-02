@@ -278,7 +278,10 @@ class FastRCNNOutputs(object):
         cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
         device = self.pred_proposal_deltas.device
 
-        bg_class_ind = 1  # self.pred_class_logits.shape[1] - 1
+        # VERY IMPORTANT!!!!!!!!
+        # should = num_class
+        # bg_class_ind = 1  # self.pred_class_logits.shape[1] - 1
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
 
         # print( "pred_proposal_deltas: {}, {}".format( self.pred_proposal_deltas.size(),
         #                                              self.pred_proposal_deltas ) )
@@ -528,4 +531,103 @@ class FastRCNNOutputLayers(nn.Module):
             x = torch.flatten(x, start_dim=1)
         scores = self.cls_score(x)
         proposal_deltas = self.bbox_pred(x)
+        return scores, proposal_deltas
+
+# new layer
+class FastRCNN2TransformerLayers(nn.Module):
+    """
+    Two linear layers for predicting Fast R-CNN outputs:
+      (1) proposal-to-detection box regression deltas
+      (2) classification scores
+    """
+
+    def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4):
+        """
+        Args:
+            input_size (int): channels, or (channels, height, width)
+            num_classes (int): number of foreground classes
+            cls_agnostic_bbox_reg (bool): whether to use class agnostic for bbox regression
+            box_dim (int): the dimension of bounding boxes.
+                Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
+        """
+        super(FastRCNN2TransformerLayers, self).__init__()
+
+        if not isinstance(input_size, int):
+            input_size = np.prod(input_size)
+
+        # The prediction layer for num_classes foreground classes and one background class
+        # (hence + 1)
+        self.cls_score = nn.Linear(input_size, num_classes + 1)
+        num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
+        self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+
+        self.num_encoder = 4
+        self.transformer = nn.Transformer(
+            d_model=input_size, nhead=8, 
+            num_encoder_layers=self.num_encoder, 
+            num_decoder_layers=self.num_encoder)
+        # sequence length = max number of proposals per batch
+        # VERY IMPORTANT: sequence length should be longer than max number of proposals per img
+        self.seq_len = 1024
+        self.query_pos = nn.Parameter(torch.rand(self.seq_len, input_size))
+        '''
+        self.tgt_encoder = nn.Linear(5, input_size)
+        '''
+
+        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.bbox_pred.weight, std=0.001)
+        for l in [self.cls_score, self.bbox_pred]:
+            nn.init.constant_(l.bias, 0)
+
+    # x: [n_propsals, 1024]
+    def forward(self, x, proposals):
+        if x.dim() > 2:
+            x = torch.flatten(x, start_dim=1)
+        
+        device = x.device
+
+        '''
+        gt_boxes = [p.gt_boxes.tensor for p in proposals]
+        gt_classes = [p.gt_classes for p in proposals]
+        '''
+        # for b, c in zip(gt_boxes, gt_classes):
+        #     print("- - gt_box={}, gt_class={}".format( b.shape, c.shape ))
+
+        # list, num_proposals of each batch
+        # during inference, num_instance in proposal_per_image is 1000
+        proposal_deltas = self.bbox_pred(x) # [n_propsals, 1024] =>
+
+        num_preds_per_image = [len(p) for p in proposals]
+        x = x.split(num_preds_per_image, dim=0)
+        bs = len(num_preds_per_image)
+        enc_x = []
+        for i in range(bs):
+
+            '''
+            gt_box = gt_boxes[i]   # [n_proposals, 4]
+            gt_cls = gt_classes[i] # [n_proposals,]
+            tgt_embed = torch.cat([gt_box, gt_cls.unsqueeze(1)], dim=1)
+            tgt_embed = self.tgt_encoder(tgt_embed) # [n_proposals, 5] => [n_proposals, input_size]
+            '''
+
+            # tgt_mask = torch.zeros(self.seq_len, self.seq_len)
+            tgt_key_padding_mask = torch.ones(1, self.seq_len)
+            tgt_key_padding_mask = tgt_key_padding_mask.to(device)
+            tgt_key_padding_mask[ :, 0:num_preds_per_image[i] ] = 0
+            tgt_key_padding_mask = tgt_key_padding_mask == 1
+            
+            # print(" * * * batch {}, x_i.shape={}".format( i, x[i].shape ))
+            y = self.transformer(x[i].unsqueeze(1), 
+                                self.query_pos.unsqueeze(1), # tgt_embed
+                                # tgt_mask=tgt_mask, 
+                                tgt_key_padding_mask = tgt_key_padding_mask,
+                                )
+            enc_x.append( y.squeeze(1)[0:num_preds_per_image[i], :] )
+        enc_x = torch.cat(enc_x, dim=0)
+
+        scores = self.cls_score(enc_x)          # [n_propsals, 1024] => 
+        # proposal_deltas = self.bbox_pred(enc_x) # [n_propsals, 1024] =>
+
+        # print(" * * * score = {}, delta = {} ".format( scores.shape, proposal_deltas.shape ))
+
         return scores, proposal_deltas

@@ -447,6 +447,9 @@ class RPNOutputs(object):
             gt_anchor_deltas_i = []
             for lvl_anchors in anchors_i:
                 match_quality_matrix_lvl = retry_if_cuda_oom(pairwise_iou)(gt_boxes_i, lvl_anchors)
+                # matched_idxs_lvl: annotation index best matched with each prediction
+                # gt_objectness_logits_lvl: label(1,0,-1) to each prediction, 
+                # where label describe if exist "a good IoU" between prediction and matched annotation
                 matched_idxs_lvl, gt_objectness_logits_lvl = retry_if_cuda_oom(self.anchor_matcher)(
                     match_quality_matrix_lvl
                 )
@@ -503,6 +506,7 @@ class RPNOutputs(object):
         """
         gt_objectness_logits: list of N tensors. Tensor i is a vector whose length is the
             total number of anchors in image i (i.e., len(anchors[i]))
+            Very Important: each value of gt_objectness_logits should be 1, 0 or -1
         gt_anchor_deltas: list of N tensors. Tensor i has shape (len(anchors[i]), B),
             where B is the box dimension
         """

@@ -170,6 +170,7 @@ class RPN(nn.Module):
         self.update_matches          = cfg.MODEL.RPN.UPDATE_MATCHES
         self.get_gt_per_level        = cfg.MODEL.RPN.GET_GT_PER_LEVEL
         self.ignore_ambiguous_sample = cfg.MODEL.RPN.IGNORE_AMBIGUOUS_SAMPLE
+        self.freeze_rpn_head         = cfg.MODEL.RPN.FREEZE_RPN_HEAD
         # fmt: on
 
         # Map from self.training state to train/test settings
@@ -194,7 +195,8 @@ class RPN(nn.Module):
             update_matches=self.update_matches,
         )
         self.rpn_head = build_rpn_head(cfg, [input_shape[f] for f in self.in_features])
-        # self.rpn_head.freeze()
+        if self.freeze_rpn_head:
+            self.rpn_head.freeze()
 
     def forward(self, images, features, gt_instances=None):
         """
@@ -215,6 +217,8 @@ class RPN(nn.Module):
         """
         # gt_boxes = [x.gt_boxes for x in gt_instances] if gt_instances is not None else None
         # x.gt_classes: [num_anns_per_img], anns per image
+        # VERY IMPORTANT!!!!!! 
+        # Only the annotations with "category other than -1" are selected as gt_boxes
         gt_boxes = (
             [x.gt_boxes[x.gt_classes != -1] for x in gt_instances]
             if gt_instances is not None

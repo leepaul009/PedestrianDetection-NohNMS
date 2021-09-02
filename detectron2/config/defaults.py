@@ -96,6 +96,7 @@ _C.DATASETS.PROPOSAL_FILES_TRAIN = ()
 _C.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TRAIN = 2000
 # List of the dataset names for testing. Must be registered in DatasetCatalog
 _C.DATASETS.TEST = ()
+_C.DATASETS.INFER = ()
 # List of the pre-computed proposal files for test, which must be consistent
 # with datasets listed in DATASETS.TEST.
 _C.DATASETS.PROPOSAL_FILES_TEST = ()
@@ -242,6 +243,8 @@ _C.MODEL.RPN.UPDATE_MATCHES = False
 _C.MODEL.RPN.GET_GT_PER_LEVEL = False
 _C.MODEL.RPN.IGNORE_AMBIGUOUS_SAMPLE = False
 
+_C.MODEL.RPN.FREEZE_RPN_HEAD = False
+
 # ---------------------------------------------------------------------------- #
 # ROI HEADS options
 # ---------------------------------------------------------------------------- #
@@ -320,6 +323,8 @@ _C.MODEL.ROI_BOX_HEAD.REG_NUM_FC = 0
 _C.MODEL.ROI_BOX_HEAD.CLS_NUM_FC = 0
 _C.MODEL.ROI_BOX_HEAD.REG_NUM_CONV = 0
 _C.MODEL.ROI_BOX_HEAD.CLS_NUM_CONV = 0
+
+_C.MODEL.ROI_BOX_HEAD.ATTENTION = False
 
 # ---------------------------------------------------------------------------- #
 # Overlap Box Head

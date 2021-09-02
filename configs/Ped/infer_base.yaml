@@ -1,10 +1,10 @@
-# faster_rcnn_R_50_FPN_baseline_iou_0.5
+# inference
 _BASE_: "../Base-RCNN-FPN.yaml"
 MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone_better"
-    FREEZE_AT: 5 # 0
+    FREEZE_AT: 0 # 0
   MASK_ON: False
   RESNETS:
     DEPTH: 50
@@ -24,28 +24,26 @@ MODEL:
     BOUNDARY_THRESH: -1
     UPDATE_MATCHES: True
     GET_GT_PER_LEVEL: True
-    FREEZE_RPN_HEAD: True # False
+    FREEZE_RPN_HEAD: False # False
   ALLOW_BOX_OUT_OF_BOUNDARY: True
   ROI_BOX_HEAD:
     SMOOTH_L1_BETA: 1.0
-    ATTENTION: True # True
+    ATTENTION: False # True
   ROI_HEADS:
-    NUM_CLASSES: 2 # to update from 1 -> 2
+    NUM_CLASSES: 1 # to update from 1 -> 2
     IGNORE_IOA: True
     POSITIVE_FRACTION: 0.5
     # PROPOSAL_APPEND_GT: True # new_parameter
   FPN:
     NORM: "BN"
 INPUT:
-  # (?, ) together with MIN_SIZE_TRAIN_SAMPLING = "choice", else (?,?) with "range"
-  MIN_SIZE_TRAIN: (720, ) # def=800, short_edge_length
-  MIN_SIZE_TEST: 720
+  MIN_SIZE_TRAIN: (800, )
+  MIN_SIZE_TEST: 800
   MAX_SIZE_TRAIN: 1400
   MAX_SIZE_TEST: 1400
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
   WITH_HOOKS: True # new_parameter
-  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" # "TrainingSampler"
 DATASETS:
   TRAIN: ("ped_train",)
   TEST: ("ped_val",)
@@ -62,7 +60,7 @@ SOLVER:
   WARMUP_FACTOR: 0.1
 TEST:
   EVAL_PERIOD: 1000
-  EVAL_START: 120000
+  EVAL_START: 12000
   DETECTIONS_PER_IMAGE: 200
 SEED: 11301414
 OUTPUT_DIR: "/data/workspace/Experiments/detectron2/Crowdhuman/faster_rcnn_R_50_FPN_baseline_iou0.5"

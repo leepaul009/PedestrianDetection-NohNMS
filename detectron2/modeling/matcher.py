@@ -70,7 +70,7 @@ class Matcher(object):
 
         Returns:
             matches (Tensor[int64]): a vector of length N, where matches[i] is a matched
-                ground-truth index in [0, M)
+                ground-truth(annotation) index in [0, M)
             match_labels (Tensor[int8]): a vector of length N, where pred_labels[i] indicates
                 whether a prediction is a true or false positive or ignored
         """
@@ -95,6 +95,7 @@ class Matcher(object):
 
         match_labels = matches.new_full(matches.size(), 1, dtype=torch.int8)
 
+        # [-inf, 0.3]:0    [0.3, 0.7]:-1   [0.7, inf]:1
         for (l, low, high) in zip(self.labels, self.thresholds[:-1], self.thresholds[1:]):
             low_high = (matched_vals >= low) & (matched_vals < high)
             match_labels[low_high] = l
@@ -275,6 +276,7 @@ class MatcherIgnore(object):
 
         fg_mask = (max_overlaps >= self.fg_thresholds) * (labels != self.ignore_label)
         bg_mask = (max_overlaps < self.bg_thresholds) * (max_overlaps >= 0.0)
+        # bg2_mask = (labels == neg_label)
         ignore_mask = ~fg_mask * ~bg_mask
         labels[fg_mask] = 1
         labels[~fg_mask] = 0

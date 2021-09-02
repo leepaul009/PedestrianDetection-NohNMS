@@ -6,6 +6,7 @@ quanzhe.li@cn.bosch.com
 import logging
 import os
 import numpy as np
+import pandas as pd
 
 import cv2
 import datetime
@@ -83,6 +84,24 @@ def load_ped(anno_file, image_dir):
             instances, ignore_instances, anno_file
         )
     )
+
+    return dataset_dicts
+
+
+def load_ped_test(anno_file, image_dir):
+
+    df = pd.read_csv(anno_file)
+    dataset_dicts = []
+
+    for i in range(len(df)):
+        record = {}
+        record["image_id"]  = df.loc[i, "image_id"] + 1
+        # record["width"]     = df.loc[i, "width"]
+        # record["height"]    = df.loc[i, "height"]
+        file_name = df.loc[i, "file_name"]
+        record["file_name"] = os.path.join(image_dir, file_name)
+        record["ID"] = file_name.split('.')[0] # image name
+        dataset_dicts.append(record)
 
     return dataset_dicts
 
@@ -262,6 +281,12 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
         json_file (str): path to the json instance annotation file.
         image_root (str): directory which contains all the images.
     """
+
+    # if name(dateset name) have key word "test":
+    if "test" in name:
+        DatasetCatalog.register(name, lambda: load_ped_test(anno_file, image_dir))
+        return
+
     # 1. register a function which returns dicts
     DatasetCatalog.register(name, lambda: load_ped(anno_file, image_dir))
 
@@ -314,7 +339,11 @@ def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
             annotation["image_id"] = image["id"]
 
             annotation["area"] = gt_box["bbox"][2] * gt_box["bbox"][3]
-            if gt_box["category_id"] != 1 or gt_box["category_id"] != 2 or gt_box["ignore"] == 1:
+            
+            ### VERY IMPORTANT!!!
+            categories_invalid = gt_box["category_id"] not in [1, 2]
+            # if gt_box["category_id"] != 1 or gt_box["category_id"] != 2 or gt_box["ignore"] == 1:
+            if categories_invalid or gt_box["ignore"] == 1:
                 annotation["ignore"] = 1
             elif outside(bbox, height, width):
                 annotation["ignore"] = 1
@@ -331,7 +360,10 @@ def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
             x1, y1, x2, y2 = bbox
             bbox = [x1, y1, x2 - x1, y2 - y1]
 
+            ### VERY IMPORTANT!!!
             annotation["category_id"] = 1 if gt_box["category_id"] == 1 else 2
+            # annotation["category_id"] = gt_box["category_id"]
+            # annotation["category_id"] = 1
             annotation["bbox"] = [round(float(x), 3) for x in bbox]
             annotation["height"] = annotation["bbox"][3]
             # vis_ratio = (gt_box["vbox"][2] * gt_box["vbox"][3]) / float(annotation["area"])
@@ -345,7 +377,9 @@ def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
         "description": "Automatically generated CrowdHuman json file for Detectron2.",
     }
 
-    categories = [{"id": 1, "name": "pedestrian"}]
+    # categories = [{"id": 1, "name": "pedestrian"}]
+    # [{'id': 1, 'name': 'Pedestrian'}, {'id': 2, 'name': 'Cyclist'}, {'id': 3, 'name': 'Car'}, {'id': 4, 'name': 'Truck'}, {'id': 5, 'name': 'Van'}]
+    categories = [{"id": 1, "name": "pedestrian"}, {"id": 2, "name": "cyclist"}]
 
     coco_dict = {
         "info": info,

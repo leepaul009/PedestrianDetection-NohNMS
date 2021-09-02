@@ -19,7 +19,7 @@ from ..poolers import ROIPooler
 from ..proposal_generator.proposal_utils import add_ground_truth_to_proposals
 from ..sampling import subsample_labels, bernoulli_subsample_labels
 from .box_head import build_box_head
-from .fast_rcnn import FastRCNNOutputLayers, FastRCNNOutputs
+from .fast_rcnn import FastRCNNOutputLayers, FastRCNNOutputs, FastRCNN2TransformerLayers
 from .overlap_head import OverlapFastRCNNOutputs, OverlapOutputLayers
 from .keypoint_head import build_keypoint_head
 from .mask_head import build_mask_head
@@ -595,6 +595,7 @@ class StandardROIHeads(ROIHeads):
         self.giou                = cfg.MODEL.ROI_BOX_HEAD.GIoU
         self.allow_oob           = cfg.MODEL.ALLOW_BOX_OUT_OF_BOUNDARY
         self.overlap_enable      = cfg.MODEL.OVERLAP_BOX_HEAD.ENABLE
+        self.use_attention       = cfg.MODEL.ROI_BOX_HEAD.ATTENTION
         # fmt: on
 
         # If StandardROIHeads is applied on multiple feature maps (as in FPN),
@@ -617,9 +618,14 @@ class StandardROIHeads(ROIHeads):
             cfg, ShapeSpec(channels=in_channels, height=pooler_resolution, width=pooler_resolution)
         )
         # 
-        self.box_predictor = FastRCNNOutputLayers(
-            self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg
-        )
+        if not self.use_attention:
+            self.box_predictor = FastRCNNOutputLayers(
+                self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg
+            )
+        else:
+            # fast-rcnn + transformer
+            self.box_predictor = FastRCNN2TransformerLayers(
+                self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg)
 
         if self.overlap_enable:
             self._init_overlap_head(cfg, input_shape, in_channels, pooler_resolution)
@@ -777,15 +783,18 @@ class StandardROIHeads(ROIHeads):
             # for p in proposals:
             #     print( " * * * * * * [roi_head] proposal_boxe.shape = {} ".format( p.proposal_boxes.tensor.shape ) )
 
-            roi_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+            roi_features = self.box_pooler(features, [x.proposal_boxes for x in proposals]) # => [n_propsals, 512, 7, 7]
             # print( " * * * * * * [roi_head] roi_features.shape = {} ".format( roi_features.shape ) )
-            box_features = self.box_head(roi_features)
+            box_features = self.box_head(roi_features) # => [n_propsals, 1024]
             # print( " * * * * * * [roi_head] box_features.shape = {} ".format( box_features.shape ) )
 
             if self.build_on_roi_feature:
                 overlap_features = self.overlap_head(roi_features)
 
-            pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+            if not self.use_attention:
+                pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+            else:
+                pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features, proposals)
             pred_overlap_prob, pred_overlap_deltas = self.overlap_predictor(overlap_features)
             del roi_features
             del box_features

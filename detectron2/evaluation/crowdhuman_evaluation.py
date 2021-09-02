@@ -104,7 +104,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         metrics = ["ALL"]
         results = {}
         ret_results = OrderedDict()
-        # 
+        # gt_json is created by (func)register_ped_instances datasets/ped.py 
         for gt_json in self._metadata.json_file:
             name = gt_json.split("/")[-1].split(".")[0]
             for id_setup in range(len(metrics)):

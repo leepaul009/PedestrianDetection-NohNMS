@@ -218,6 +218,7 @@ _PREDEFINED_SPLITS_PED = {
     # "ped_train": ("ped/images/train", "ped/annotations/dhd_traffic_train.json"),
     "ped_train": ("ped/images/train", "ped/annotations/train.json"),
     "ped_val":   ("ped/images/train", "ped/annotations/val.json"),
+    "ped_test": ("ped/images/test", "ped/annotations/test.csv"),
 }
 
 def register_all_ped(root="datasets"):

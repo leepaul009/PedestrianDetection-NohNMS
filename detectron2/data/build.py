@@ -30,6 +30,7 @@ __all__ = [
     "build_detection_train_loader",
     "build_detection_train_loader_with_hook",
     "build_detection_test_loader",
+    "build_detection_infer_loader",
     "get_detection_dataset_dicts",
     "load_proposals_into_dataset",
     "print_instances_class_histogram",
@@ -413,10 +414,9 @@ def build_detection_train_loader_with_hook(cfg, mapper=None):
     sampler_name = cfg.DATALOADER.SAMPLER_TRAIN
     logger = logging.getLogger(__name__)
     logger.info("Using training sampler {}".format(sampler_name))
-    # if sampler_name == "TrainingSampler":
-    #     sampler = samplers.TrainingSampler(len(dataset))
-    # elif sampler_name == "RepeatFactorTrainingSampler":
     if sampler_name == "TrainingSampler":
+        sampler = samplers.TrainingSampler(len(dataset))
+    elif sampler_name == "RepeatFactorTrainingSampler":
         sampler = samplers.RepeatFactorTrainingSampler(
             dataset_dicts, 
             cfg.DATALOADER.REPEAT_THRESHOLD # 0.0, do not balance category
@@ -481,6 +481,37 @@ def build_detection_test_loader(cfg, dataset_name, mapper=None):
     dataset = DatasetFromList(dataset_dicts)
     if mapper is None:
         mapper = DatasetMapper(cfg, False)
+    dataset = MapDataset(dataset, mapper)
+
+    sampler = samplers.InferenceSampler(len(dataset))
+    # Always use 1 image per worker during inference since this is the
+    # standard when reporting inference time in papers.
+    batch_sampler = torch.utils.data.sampler.BatchSampler(sampler, 1, drop_last=False)
+
+    data_loader = torch.utils.data.DataLoader(
+        dataset,
+        num_workers=cfg.DATALOADER.NUM_WORKERS,
+        batch_sampler=batch_sampler,
+        collate_fn=trivial_batch_collator,
+    )
+    return data_loader
+
+
+def build_detection_infer_loader(cfg, dataset_name, mapper=None):
+
+    dataset_dicts = get_detection_dataset_dicts(
+        [dataset_name],
+        filter_empty=False,
+        proposal_files=[
+            cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(dataset_name)]
+        ]
+        if cfg.MODEL.LOAD_PROPOSALS
+        else None,
+    )
+
+    dataset = DatasetFromList(dataset_dicts)
+    if mapper is None:
+        mapper = DatasetMapper(cfg, False, is_infer=True)
     dataset = MapDataset(dataset, mapper)
 
     sampler = samplers.InferenceSampler(len(dataset))
