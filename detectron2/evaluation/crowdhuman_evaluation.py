@@ -18,6 +18,7 @@ import torch
 import matplotlib.pyplot as plt
 from collections import defaultdict, OrderedDict
 from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
 from fvcore.common.file_io import PathManager
 from tabulate import tabulate
 
@@ -49,6 +50,9 @@ class CrowdHumanEvaluator(DatasetEvaluator):
 
         self._metadata = MetadataCatalog.get(dataset_name)
 
+        ### add cnt
+        self.inter_cnt = 0
+
     def reset(self):
         self._predictions = []
         self.submit_results = []
@@ -57,6 +61,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
     def process(self, inputs, outputs):
         for input, output in zip(inputs, outputs):
             prediction = {"image_id": input["image_id"]}
+            # input["ID"]: file name
             submit_result = {"height": input["height"], "ID": input["ID"], "width": input["width"]}
             if "instances" in output:
                 instances = output["instances"].to(self._cpu_device)
@@ -85,14 +90,16 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         self._logger.info("Preparing results for COCO format ...")
         self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
         if self._output_dir:
-            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results.json")
+            self.inter_cnt += 1
+            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(self.inter_cnt))
             self._logger.info("Saving results to {}".format(res_file))
             with PathManager.open(res_file, "w") as f:
                 f.write(json.dumps(self._coco_results))
                 f.flush()
 
-            self._logger.info("Saving results to {}".format(res_file))
-            submit_file = os.path.join(self._output_dir, "submission.txt")
+            # self._logger.info("Saving results to {}".format(res_file))
+            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(self.inter_cnt))
+            self._logger.info("Saving submit file to {}".format(submit_file))
             with PathManager.open(submit_file, "w") as f:
                 for result in self.submit_results:
                     f.write(json.dumps(result))
@@ -124,6 +131,66 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         )
         ret_results["PedestrianDetection"] = copy.deepcopy(results)
         return ret_results
+
+    def coco_evaluate(self):
+        if self._distributed:
+            comm.synchronize()
+            self._predictions = comm.gather(self._predictions, dst=0)
+            self._predictions = list(itertools.chain(*self._predictions))
+
+            self.submit_results = comm.gather(self.submit_results, dst=0)
+            self.submit_results = list(itertools.chain(*self.submit_results))
+
+            if not comm.is_main_process():
+                return {}
+
+        if len(self._predictions) == 0:
+            self._logger.warning("[COCOEvaluator] Did not receive valid predictions.")
+            return {}
+
+        self._logger.info("Preparing results for COCO format ...")
+        self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
+        if self._output_dir:
+            self.inter_cnt += 1
+            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(self.inter_cnt))
+            self._logger.info("Saving results to {}".format(res_file))
+            with PathManager.open(res_file, "w") as f:
+                f.write(json.dumps(self._coco_results))
+                f.flush()
+
+            # self._logger.info("Saving results to {}".format(res_file))
+            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(self.inter_cnt))
+            self._logger.info("Saving submit file to {}".format(submit_file))
+            with PathManager.open(submit_file, "w") as f:
+                for result in self.submit_results:
+                    f.write(json.dumps(result))
+                    f.write("\n")
+                f.flush()
+
+        self._logger.info("Evaluating predictions ...")
+
+        # metrics = ["ALL"]
+        # results = {}
+        # ret_results = OrderedDict()
+        # gt_json is created by (func)register_ped_instances datasets/ped.py 
+        for gt_json in self._metadata.json_file:
+            name = gt_json.split("/")[-1].split(".")[0]
+
+            cocoGt = COCO(gt_json)
+
+            # remove category
+            # removed_cate = cocoGt.dataset['categories'].pop()
+            # print("Remove category {} from cocoGT.".format(removed_cate))
+
+            cocoDt = cocoGt.loadRes(res_file) 
+            coco_eva = COCOeval(cocoGt, cocoDt, 'bbox')
+            coco_eva.evaluate()
+            coco_eva.accumulate()
+            coco_eva.summarize()
+
+        self._logger.info("Evaluation results for Pedestrian Detection on PedDataset: \n")
+        return None # ret_results
+
 
 
 def coco_json_to_submit_format(results):
@@ -517,7 +584,7 @@ class CrowdHumanEval:
 
                 tp_sum = np.cumsum(tps, axis=1).astype(dtype=np.float)
                 fp_sum = np.cumsum(fps, axis=1).astype(dtype=np.float)
-                for t, (tp, fp) in enumerate(zip(tp_sum, fp_sum)):
+                for t, (tp, fp) in enumerate(zip(tp_sum, fp_sum)): # for each IouThres
                     tp = np.array(tp)
                     fppi = np.array(fp) / I0
                     nd = len(tp)

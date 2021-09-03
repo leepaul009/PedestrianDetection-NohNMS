@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["register_ped_instances", "load_ped"]
 
+# load 2 cls:
 def load_ped(anno_file, image_dir):
     """
     Return dataset dict.
@@ -42,7 +43,7 @@ def load_ped(anno_file, image_dir):
     for img_id, anno in enumerate(annos):
 
         record = {}
-        record["image_id"] = img_id + 1
+        record["image_id"] = img_id + 1 # corresp.t. 
         record["ID"] = anno["file_name"].split('.')[0]
         record["file_name"] = os.path.join(image_dir, anno["file_name"])
 
@@ -55,12 +56,7 @@ def load_ped(anno_file, image_dir):
             obj = {}
             obj["bbox"] = gt_box["bbox"]
             obj["bbox_mode"] = BoxMode.XYWH_ABS
-            # if gt_box["category_id"] != 1 or gt_box["ignore"] != 0:
-            #     obj["category_id"] = -1
-            #     ignore_instances += 1
-            # else:
-            #     obj["category_id"] = 0
-            #     has_ped = True
+            ### VERY IMPORTANT!!!
             if gt_box["category_id"] == 1 and gt_box["ignore"] == 0:
                 obj["category_id"] = 0
                 has_ped = True
@@ -87,6 +83,52 @@ def load_ped(anno_file, image_dir):
 
     return dataset_dicts
 
+# load 1 cls:
+def load_ped_cls_1(anno_file, image_dir):
+    with open(anno_file, "r") as f:
+        annos = json.load(f)
+    image_num = len(annos)
+    logger.info("Loaded {} images in Ped from {}".format(image_num, anno_file))
+
+    dataset_dicts = []
+    ignore_instances = 0
+    instances = 0
+
+    for img_id, anno in enumerate(annos):
+        record = {}
+        record["image_id"] = img_id + 1 # corresp.t. 
+        record["ID"] = anno["file_name"].split('.')[0]
+        record["file_name"] = os.path.join(image_dir, anno["file_name"])
+        objs = []
+        has_ped = False
+        for gt_box in anno["annotations"]:
+            if gt_box["bbox"][2] < 0 or gt_box["bbox"][3] < 0:
+                continue
+            obj = {}
+            obj["bbox"] = gt_box["bbox"]
+            obj["bbox_mode"] = BoxMode.XYWH_ABS
+            ### VERY IMPORTANT!!!
+            if gt_box["category_id"] == 1 and gt_box["ignore"] == 0:
+                obj["category_id"] = 0
+                has_ped = True
+            else:
+                obj["category_id"] = -1
+                ignore_instances += 1
+            instances += 1
+
+            obj["vis_ratio"] = 1
+            objs.append(obj)
+        
+        record["annotations"] = objs
+        if has_ped:
+            dataset_dicts.append(record)
+    logger.info(
+        "Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(
+            instances, ignore_instances, anno_file
+        )
+    )
+    return dataset_dicts
+
 
 def load_ped_test(anno_file, image_dir):
 
@@ -104,87 +146,6 @@ def load_ped_test(anno_file, image_dir):
         dataset_dicts.append(record)
 
     return dataset_dicts
-
-
-def load_ped_for_two_cls(anno_file, image_dir):
-    """
-    Return dataset dict.
-    """
-    # anno_lines = open(anno_file, "r").readlines()
-    # annos = [json.loads(line.strip()) for line in anno_lines]
-    # image_num = len(annos)
-    # logger.info("Loaded {} images in CrowdHuman from {}".format(image_num, anno_file))
-    with open(anno_file, "r") as f:
-        annos = json.load(f)
-    image_num = len(annos)
-    logger.info("Loaded {} images in Ped from {}".format(image_num, anno_file))
-
-    dataset_dicts = []
-    ignore_instances = 0
-    instances = 0
-    # anno_id = 0
-    # for img_id, anno in enumerate(annos):
-    # for img_id, image in enumerate(images):
-    for img_id, anno in enumerate(annos):
-        # record = {}
-        # record["image_id"] = img_id + 1
-        # record["ID"] = anno["ID"]
-        # record["file_name"] = os.path.join(image_dir, anno["ID"] + ".jpg")
-        record = {}
-        record["image_id"] = img_id + 1
-        record["ID"] = anno["file_name"].split('.')[0]
-        record["file_name"] = os.path.join(image_dir, anno["file_name"])
-
-        objs = []
-        # for gt_box in anno["gtboxes"]:
-        #     if gt_box["fbox"][2] < 0 or gt_box["fbox"][3] < 0:
-        #         continue
-        #     obj = {}
-        #     obj["bbox"] = gt_box["fbox"]
-        #     obj["bbox_mode"] = BoxMode.XYWH_ABS
-        #     if gt_box["tag"] != "person" or gt_box["extra"].get("ignore", 0) != 0:
-        #         obj["category_id"] = -1
-        #         ignore_instances += 1
-        #     else:
-        #         obj["category_id"] = 0
-        #     instances += 1
-
-        #     vis_ratio = (gt_box["vbox"][2] * gt_box["vbox"][3]) / float(
-        #         (gt_box["fbox"][2] * gt_box["fbox"][3])
-        #     )
-        #     obj["vis_ratio"] = vis_ratio
-
-        #     objs.append(obj)
-        has_ped = False
-        for gt_box in anno["annotations"]:
-            if gt_box["bbox"][2] < 0 or gt_box["bbox"][3] < 0:
-                continue
-            obj = {}
-            obj["bbox"] = gt_box["bbox"]
-            obj["bbox_mode"] = BoxMode.XYWH_ABS
-            if gt_box["category_id"] != 1 or gt_box["ignore"] != 0:
-                obj["category_id"] = -1
-                ignore_instances += 1
-            else:
-                obj["category_id"] = 0
-                has_ped = True
-            instances += 1
-
-            obj["vis_ratio"] = 1
-            objs.append(obj)
-        
-        record["annotations"] = objs
-        if has_ped:
-            dataset_dicts.append(record)
-
-    logger.info(
-        "Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(
-            instances, ignore_instances, anno_file
-        )
-    )
-
-    return dataset_dicts
-
 
 def load_ped_with_original_input(anno_file, image_dir):
     """
@@ -289,6 +250,7 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
 
     # 1. register a function which returns dicts
     DatasetCatalog.register(name, lambda: load_ped(anno_file, image_dir))
+    # DatasetCatalog.register(name, lambda: load_ped_cls_1(anno_file, image_dir))
 
     if not isinstance(val_json_files, list):
         val_json_files = [val_json_files]
@@ -308,6 +270,7 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
             if not os.path.exists(val_json_file):
                 is_clip = "clip" in val_json_file
                 convert_to_coco_dict(anno_file, image_dir, val_json_file, is_clip=is_clip)
+                # convert_to_coco_dict_1_cls(anno_file, image_dir, val_json_file, is_clip=is_clip)
 
 def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
     from tqdm import tqdm
@@ -328,6 +291,7 @@ def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
         img = cv2.imread(filename)
         height, width = img.shape[:2]
 
+        # "id" corresp.t. record["image_id"] of load_ped
         image = {"id": img_id + 1, "file_name": filename, "height": height, "width": width}
         images.append(image)
 

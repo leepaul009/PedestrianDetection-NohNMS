@@ -239,6 +239,7 @@ class SimpleTrainer(TrainerBase):
         if torch.is_tensor(loss_per_image) and self.sampler is not None:
             if cur_ids.shape[0] == loss_per_image.shape[0]:
                 self.sampler.update_data_dicts(cur_ids, loss_per_image)
+                # self.sampler.update_data_dicts_from_dict(cur_ids, loss_per_image, device)
 
 
 

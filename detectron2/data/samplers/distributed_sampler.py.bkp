@@ -92,6 +92,7 @@ class RepeatFactorTrainingSampler(Sampler):
 
         self.additional_ids = None
         self.additional_losses = None
+        self.device = None
 
     def _get_repeat_factors(self, dataset_dicts, repeat_thresh):
         """
@@ -160,19 +161,50 @@ class RepeatFactorTrainingSampler(Sampler):
 
             assert self.additional_ids.shape[0] == self.additional_losses.shape[0], "size not match!"
 
+            
+            # set self.device
+            # synchronize
+            # self.additional_ids    = self.additional_ids.to(self.device)
+            # self.additional_losses = self.additional_losses.to(self.device)
+
+            # size => size * world_size
+            comm.synchronize()
+            self.additional_ids    = comm.all_gather(self.additional_ids)
+            self.additional_losses = comm.all_gather(self.additional_losses)
+            comm.synchronize()
+
+            # self.additional_ids    = [ it.cpu() for it in self.additional_ids ] 
+            # self.additional_losses = [ it.cpu() for it in self.additional_losses ] 
+
+            self.additional_losses = torch.cat(self.additional_losses)
+            self.additional_ids    = torch.cat(self.additional_ids)
+
+            # 3) move data to cpu
+            # Question: does gpu buffer been relased after moving to cpu
+            # self.additional_ids    = self.additional_ids.cpu()
+            # self.additional_losses = self.additional_losses.cpu()
+            
+
+
             sorted_loss, _sorted_key = torch.sort(self.additional_losses, descending=True)
             sorted_ids = self.additional_ids[_sorted_key]
             
             print(" + + + * * * * * * R.{}  indices:{}, sorted_ids: {}, sorted_loss: {}"
                 .format( self._rank, len(indices), sorted_ids[:10], sorted_loss[:10] ))
 
-            sorted_ids = sorted_ids[:800]
-            for import_id in sorted_ids:
-                rep_factor = 5 * 4
-
+            # sorted_ids = sorted_ids[:800]
+            # for import_id in sorted_ids:
+            #     rep_factor = 10 * 4
+                # indices.extend([import_id] * int(rep_factor))
+            
+            items_per_thread = 200
+            sorted_ids = sorted_ids[self._rank * items_per_thread : (self._rank + 1) * items_per_thread]
+            rep_factor = 8
+            for import_id in sorted_ids: 
                 indices.extend([import_id] * int(rep_factor))
             
-            # clear 
+            
+            # release 
             self.additional_ids = None
             self.additional_losses = None
 
@@ -208,25 +240,60 @@ class RepeatFactorTrainingSampler(Sampler):
             self.additional_ids    = cur_ids
             self.additional_losses = loss_per_image
 
-    def update_data_dicts2(self, cur_ids, loss_per_image):
+    def update_data_dicts_from_dict(self, cur_ids, loss_per_image, device):
+
+        self.device = device
+
         if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
             
-            comm.synchronize()
-
             self.additional_ids    = torch.cat([self.additional_ids, cur_ids])
             self.additional_losses = torch.cat([self.additional_losses, loss_per_image])
 
             assert self.additional_ids.shape[0] == self.additional_losses.shape[0]
+            
+            # print(" * * * * * * + + + R.{}  ids:{}, loss:{}"
+            #     .format( self._rank, self.additional_ids, self.additional_losses ))
+ 
+            # 4) control buffer size per thread
+            threshold_to_drop = 400
+            buffer_max_size = 210
 
-            print(" * * * * * * + + + R.{}  ids:{}, loss:{}"
-                .format( self._rank, self.additional_ids, self.additional_losses ))
+            if self.additional_ids.shape[0] > threshold_to_drop:
+                ### merge
+                # 1) set self.device
 
-            self.additional_ids    = comm.all_gather(self.additional_ids)
-            self.additional_losses = comm.all_gather(self.additional_losses)
-            print(" * * * * * * + + + + + + R.{}  ids:{}, loss:{}"
-                .format( self._rank, self.additional_ids, self.additional_losses ))
+                # 2) move data to device
+                # self.additional_ids    = self.additional_ids.to(self.device)
+                # self.additional_losses = self.additional_losses.to(self.device)
 
-            comm.synchronize()
+                # size => size * world_size
+                comm.synchronize()
+                self.additional_ids    = comm.all_gather(self.additional_ids)
+                self.additional_losses = comm.all_gather(self.additional_losses)
+                comm.synchronize()
+                
+                # self.additional_ids    = [ it for it in self.additional_ids ] 
+                # self.additional_losses = [ it for it in self.additional_losses ] 
+
+                self.additional_losses = torch.cat(self.additional_losses)
+                self.additional_ids    = torch.cat(self.additional_ids)
+                
+                # self.additional_losses = list(itertools.chain(*self.additional_losses))
+                # self.additional_ids = list(itertools.chain(*self.additional_ids))
+
+                # 3) move data to cpu
+                # Question: does gpu buffer been relased after moving to cpu
+                # self.additional_ids    = self.additional_ids.cpu()
+                # self.additional_losses = self.additional_losses.cpu()
+
+                # sort
+                _, _sorted_key = torch.sort(self.additional_losses, descending=True)
+                # each thread take different buffer
+                self.additional_ids = self.additional_ids[_sorted_key][self._rank * buffer_max_size : (self._rank+1) * buffer_max_size]
+                self.additional_losses = self.additional_losses[_sorted_key][self._rank * buffer_max_size : (self._rank+1) * buffer_max_size]
+            
+                print(" * * * * * * after sync, R.{}  ids:{}, loss:{}"
+                    .format( self._rank, self.additional_ids[:10], self.additional_losses[:10] ))
 
         else: # init
             self.additional_ids    = cur_ids

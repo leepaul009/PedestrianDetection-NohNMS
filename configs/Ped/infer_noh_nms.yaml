@@ -9,4 +9,4 @@ MODEL:
     UNIFORM_REG_DIVISOR: True
     PROB_LOSS_BETA: 0.02
 # OUTPUT_DIR: "/data/workspace/Experiments/detectron2/Crowdhuman/faster_rcnn_R_50_FPN_baseline_iou0.5_noh_nms"
-OUTPUT_DIR: "./Experiments/detectron2/Ped/infer_freeze0_corner_case"
+OUTPUT_DIR: "./Experiments/detectron2/Ped/infer_transformer_head_freeze_bb_rpn"
