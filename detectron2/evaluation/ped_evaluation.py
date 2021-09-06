@@ -28,11 +28,14 @@ class PedEvaluator(DatasetEvaluator):
                 record = {}
                 record["image_id"]  = input['image_id']
                 record["file_name"] = input['file_name']
+                # record["instances"] = {"pred_boxes":    instances.pred_boxes, 
+                #                        "scores":        instances.scores, 
+                #                        "pred_classes":  instances.pred_classes,
+                #                        "overlap_boxes": instances.overlap_boxes,
+                #                        "overlap_probs": instances.overlap_probs, }
                 record["instances"] = {"pred_boxes":    instances.pred_boxes, 
                                        "scores":        instances.scores, 
-                                       "pred_classes":  instances.pred_classes,
-                                       "overlap_boxes": instances.overlap_boxes,
-                                       "overlap_probs": instances.overlap_probs, }
+                                       "pred_classes":  instances.pred_classes}
                 # print("input={}".format(input))
                 # print("instances={}".format(instances))
                 self._predictions.append(record)

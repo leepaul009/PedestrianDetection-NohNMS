@@ -1,4 +1,4 @@
-# faster_rcnn_R_50_FPN_baseline_iou_0.5
+# both train and infer
 _BASE_: "../Base-RCNN-FPN.yaml"
 MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
@@ -33,9 +33,15 @@ MODEL:
     NUM_CLASSES: 1 # to update from 1 -> 2
     IGNORE_IOA: True
     POSITIVE_FRACTION: 0.5
-    # PROPOSAL_APPEND_GT: True # def True
   FPN:
     NORM: "BN"
+  OVERLAP_BOX_HEAD:
+    ENABLE: True # def True
+    BUILD_ON_ROI_FEATURE: True
+    OVERLAP_IOU_THRESHOLD: 0.4
+    REG_LOSS_COEFF: 1.0
+    UNIFORM_REG_DIVISOR: True
+    PROB_LOSS_BETA: 0.02
 INPUT:
   # (?, ) together with MIN_SIZE_TRAIN_SAMPLING = "choice", else (?,?) with "range"
   MIN_SIZE_TRAIN: (850, ) # def=800, short_edge_length
@@ -51,19 +57,20 @@ DATASETS:
   TEST: ("ped_val",)
   INFER: ("ped_test", )
 SOLVER:
-  IMS_PER_BATCH: 16
-  BASE_LR: 0.04
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.0001
   # STEPS: (18750, 24375)
   # MAX_ITER: 128125
   STEPS: (60000, 80000) # new_parameter
-  MAX_ITER: 150000 # 90000 # new_parameter
-  CHECKPOINT_PERIOD: 4000
+  MAX_ITER: 90000 # 90000 # new_parameter
+  CHECKPOINT_PERIOD: 1000
   WARMUP_ITERS: 800
   WARMUP_FACTOR: 0.1
+  LR_SCHEDULER_NAME: "cycle"
 TEST:
-  EVAL_PERIOD: 1000
+  EVAL_PERIOD: 2000
   EVAL_START: 30000
   DETECTIONS_PER_IMAGE: 200
 SEED: 11301414
-OUTPUT_DIR: "./Experiments/detectron2/Ped/transformer_cls_zeros"
-# 44.6
+OUTPUT_DIR: "./Experiments/detectron2/NewPed/noh_nms"
+

@@ -220,7 +220,7 @@ class ROIHeads(torch.nn.Module):
 
     @torch.no_grad()
     def label_and_sample_proposals(
-        self, proposals: List[Instances], targets: List[Instances]
+        self, proposals: List[Instances], targets: List[Instances], overlap_enable: bool = False
     ) -> List[Instances]:
         """
         Prepare some proposals to be used to train the ROI heads.
@@ -358,22 +358,24 @@ class ROIHeads(torch.nn.Module):
             num_bg_samples.append((gt_classes == self.num_classes).sum().item())
             num_fg_samples.append(gt_classes.numel() - num_bg_samples[-1])
 
-            # overlap box select
-            # for each proposal, either "get second best match" or "get best match itself" for overlap target
-            matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True) # [n_ann, n_pred]
-            if matched_vals.size(0) > 1: # n_ann>=2
-                overlap_iou = matched_vals[1, :]  # [n_pred,]
-                overlap_gt_idx = sorted_idx[1, :] # [n_pred,]
-            else: # n_ann==1
-                overlap_iou = matched_vals.new_zeros(matched_vals.size(1)) # [n_pred,]
-                overlap_gt_idx = sorted_idx[0, :] # [n_pred,]
+            if overlap_enable:
+                # overlap box select
+                # for each proposal, either "get second best match" or "get best match itself" for overlap target
+                matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True) # [n_ann, n_pred]
+                if matched_vals.size(0) > 1: # n_ann>=2
+                    overlap_iou = matched_vals[1, :]  # [n_pred,]
+                    overlap_gt_idx = sorted_idx[1, :] # [n_pred,]
+                else: # n_ann==1
+                    overlap_iou = matched_vals.new_zeros(matched_vals.size(1)) # [n_pred,]
+                    overlap_gt_idx = sorted_idx[0, :] # [n_pred,]
 
-            selected_overlap_iou = overlap_iou[sampled_idxs]
-            selected_overlap_gt_idx = overlap_gt_idx[sampled_idxs]
-            selected_overlap_gt_boxes = targets_per_image.gt_boxes[selected_overlap_gt_idx]
+                selected_overlap_iou = overlap_iou[sampled_idxs]
+                selected_overlap_gt_idx = overlap_gt_idx[sampled_idxs]
+                selected_overlap_gt_boxes = targets_per_image.gt_boxes[selected_overlap_gt_idx]
 
-            proposals_per_image.overlap_iou = selected_overlap_iou
-            proposals_per_image.overlap_gt_boxes = selected_overlap_gt_boxes
+                proposals_per_image.overlap_iou = selected_overlap_iou
+                proposals_per_image.overlap_gt_boxes = selected_overlap_gt_boxes
+                # end overlap
 
             proposals_with_gt.append(proposals_per_image)
 
@@ -620,8 +622,7 @@ class StandardROIHeads(ROIHeads):
         # 
         if not self.use_attention:
             self.box_predictor = FastRCNNOutputLayers(
-                self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg
-            )
+                self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg)
         else:
             # fast-rcnn + transformer
             self.box_predictor = FastRCNN2TransformerLayers(
@@ -711,7 +712,7 @@ class StandardROIHeads(ROIHeads):
         del images
         if self.training:
             assert targets
-            proposals = self.label_and_sample_proposals(proposals, targets)
+            proposals = self.label_and_sample_proposals(proposals, targets, self.overlap_enable)
         del targets
 
         if self.training:
@@ -824,7 +825,11 @@ class StandardROIHeads(ROIHeads):
             box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
 
             box_features = self.box_head(box_features)
-            pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+            # pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+            if not self.use_attention:
+                pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+            else:
+                pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features, proposals)
             del box_features
 
             outputs = FastRCNNOutputs(
@@ -843,7 +848,11 @@ class StandardROIHeads(ROIHeads):
                     pred_boxes = outputs.predict_boxes_for_gt_classes()
                     for proposals_per_image, pred_boxes_per_image in zip(proposals, pred_boxes):
                         proposals_per_image.proposal_boxes = Boxes(pred_boxes_per_image)
-            return outputs.losses()
+            
+            outputs_loss = outputs.losses()
+            self.loss_per_image = outputs.loss_per_image
+
+            return outputs_loss # outputs.losses()
         else:
             pred_instances, _ = outputs.inference(
                 self.test_score_thresh, self.test_nms_thresh, self.test_detections_per_img

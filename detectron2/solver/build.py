@@ -75,5 +75,12 @@ def build_lr_scheduler(
             warmup_iters=cfg.SOLVER.WARMUP_ITERS,
             warmup_method=cfg.SOLVER.WARMUP_METHOD,
         )
+    elif name == "cycle":
+        return torch.optim.lr_scheduler.CyclicLR(
+            optimizer, 
+            base_lr=cfg.SOLVER.BASE_LR, # 0.00001
+            max_lr=cfg.SOLVER.BASE_LR * 50, # 0.0005
+            step_size_up=5000, # default=2000
+            )
     else:
         raise ValueError("Unknown LR scheduler: {}".format(name))

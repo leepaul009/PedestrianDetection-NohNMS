@@ -52,6 +52,7 @@ def subsample_labels(labels, num_samples, positive_fraction, bg_label):
 
 
 def bernoulli_subsample_labels(labels, num_samples, positive_fraction, bg_label):
+    ### VERY IMPORTANT!!!: valid label is 0 as binary category
     fg_mask = labels == 0
     bg_mask = labels == 1
     pos_max = int(num_samples * positive_fraction)

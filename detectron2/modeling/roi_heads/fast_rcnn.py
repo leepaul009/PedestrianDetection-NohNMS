@@ -193,6 +193,27 @@ class FastRCNNOutputs(object):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+        
+        self.loss_per_image = None
+
+        if False:
+            self.proposal_size_per_image = None
+            if proposals[0].has("gt_boxes"):
+                # self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
+                # assert proposals[0].has("gt_classes")
+                # self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+                
+                self.proposal_size_per_image = [ p.gt_classes.shape[0] for p in proposals ]
+                pos1 = 0
+                pos2 = 0
+                self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
+                for i, p in enumerate(proposals):
+                    pos2 += p.gt_classes.shape[0]
+                    self.loss_per_image[i] = F.cross_entropy(self.pred_class_logits[pos1 : pos2], 
+                                                            p.gt_classes, 
+                                                            reduction="mean").detach()
+                    pos1 = pos2
+
 
     def _log_accuracy(self):
         """
@@ -316,6 +337,64 @@ class FastRCNNOutputs(object):
             reduction="sum",
         )
 
+        
+        #################
+        if True:
+            max_score, _      = torch.max(self.pred_class_logits[:, :-1], dim=1)
+            pred_class_logits = torch.stack([max_score, self.pred_class_logits[:, -1]], axis=1)
+            
+            #################
+            # get valid prediction indexes
+            # self.gt_classes is label of predictions
+
+            valid_inds = torch.nonzero( (self.gt_classes >= 0) & (self.gt_classes < bg_class_ind) ).squeeze(1).detach().cpu()
+
+            # print("######## valid_inds_all_img: {}".format( valid_inds ))
+
+            # get split per image
+            # self.num_preds_per_image is a list, each item is number of predictions per image
+
+            self.loss_per_image = torch.zeros( [len(self.num_preds_per_image)], dtype=torch.float )
+            pos_beg = 0
+            pos_end = 0
+            for i, num_preds in enumerate(self.num_preds_per_image):
+                pos_end += num_preds 
+
+                # find split of valid prediction indexes within [pos_beg, pos_end)
+
+                selected_inds_to_valid_inds = torch.nonzero( (valid_inds >= pos_beg) & (valid_inds < pos_end) ).squeeze(1)
+
+                self.loss_per_image[i] += F.cross_entropy(pred_class_logits[pos_beg:pos_end], 
+                                                        self.gt_classes[pos_beg:pos_end], 
+                                                        reduction="mean").detach().cpu()
+                
+                # print("######## image {}: {} -> {}".format( i, pos_beg, pos_end ))
+                # print("######## image {}: cls_loss {}".format( i, self.loss_per_image[i] ))
+
+                pos_beg += num_preds
+
+                num_selected_box = selected_inds_to_valid_inds.shape[0]
+                if num_selected_box == 0:
+                    continue
+
+                valid_inds_this_img = valid_inds[selected_inds_to_valid_inds]
+
+                # print("######## image {}: valid_inds_this_img: {}".format( i, valid_inds_this_img ))
+
+                if cls_agnostic_bbox_reg:
+                    gt_class_cols = torch.arange(box_dim, device=device)
+                else:
+                    fg_gt_classes = self.gt_classes[valid_inds_this_img]
+                    gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+                self.loss_per_image[i] += smooth_l1_loss(self.pred_proposal_deltas[valid_inds_this_img[:,None], gt_class_cols],
+                                                        gt_proposal_deltas[valid_inds_this_img], 
+                                                        self.smooth_l1_beta,
+                                                        reduction="sum").detach().cpu() / num_selected_box
+                
+                # print("######## image {}: reg_loss {}".format( i, self.loss_per_image[i] ))
+
+        
         # print( "fg_inds[]: {}".format( fg_inds[:, None] ) )
         # print( "gt_class_cols: {}".format( gt_class_cols ) )
         # print( "pred_proposal_deltas[]: {}".format( 
@@ -362,7 +441,7 @@ class FastRCNNOutputs(object):
         """
         Compute the default losses for box head in Fast(er) R-CNN,
         with softmax cross entropy loss and smooth L1 loss.
-
+            self.giou: def false
         Returns:
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_box_reg".
         """

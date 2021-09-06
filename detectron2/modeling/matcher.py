@@ -274,6 +274,8 @@ class MatcherIgnore(object):
         labels[gt_classes != -1] = 1
         labels = labels[gt_assignment] # => [n_pred]
 
+        ## option 1:
+        '''
         fg_mask = (max_overlaps >= self.fg_thresholds) * (labels != self.ignore_label)
         bg_mask = (max_overlaps < self.bg_thresholds) * (max_overlaps >= 0.0)
         # bg2_mask = (labels == neg_label)
@@ -281,5 +283,16 @@ class MatcherIgnore(object):
         labels[fg_mask] = 1
         labels[~fg_mask] = 0
         labels[ignore_mask] = -1
+        '''
+        ## option 2(consider negative sample: sample good matched to label -1):
+        
+        fg_mask = (max_overlaps >= self.fg_thresholds) * (labels != self.ignore_label)
+        bg_mask = (max_overlaps < self.bg_thresholds) * (max_overlaps >= 0.0)
+        neg_mask = (max_overlaps >= self.fg_thresholds) * (labels == self.ignore_label)
+        ignore_mask = ~fg_mask * ~bg_mask * ~neg_mask
+        labels[fg_mask] = 1
+        labels[~fg_mask] = 0
+        labels[ignore_mask] = -1
+        
 
         return gt_assignment, labels

@@ -22,7 +22,7 @@ import torch
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+# os.environ["CUDA_VISIBLE_DEVICES"]="0"
 # os.environ["CUDA_VISIBLE_DEVICES"]="1,2,3"
 
 import detectron2.utils.comm as comm

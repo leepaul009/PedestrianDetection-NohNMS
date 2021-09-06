@@ -168,7 +168,7 @@ class RepeatFactorTrainingSampler(Sampler):
 
             sorted_ids = sorted_ids[:800]
             for import_id in sorted_ids:
-                rep_factor = 5 * 4
+                rep_factor = 4 * 4
 
                 indices.extend([import_id] * int(rep_factor))
             

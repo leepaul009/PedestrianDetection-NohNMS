@@ -272,18 +272,15 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
-            # print("gt_boxes: {}".format( self.gt_boxes ))
-            # print("gt_classes: {}".format( self.gt_classes ))
-            # for debug:
-            pos1 = 0
-            pos2 = 0
-            self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
-            for i, p in enumerate(proposals):
-                pos2 += p.gt_classes.shape[0]
-                self.loss_per_image[i] = F.cross_entropy(self.pred_class_logits[pos1 : pos2], p.gt_classes, reduction="mean").detach()
-                # print( " * * * * * * p.gt_classes.shape = {} vs. ({} {}), loss = {} "
-                #     .format( p.gt_classes.shape, pos1, pos2, self.loss_per_image[i] ) )
-                pos1 = pos2
+
+            if False:
+                pos1 = 0
+                pos2 = 0
+                self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
+                for i, p in enumerate(proposals):
+                    pos2 += p.gt_classes.shape[0]
+                    self.loss_per_image[i] = F.cross_entropy(self.pred_class_logits[pos1 : pos2], p.gt_classes, reduction="mean").detach()
+                    pos1 = pos2
 
         if proposals[0].has("overlap_iou"):
             self.overlap_iou = cat([p.overlap_iou for p in proposals], dim=0)

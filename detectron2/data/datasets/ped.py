@@ -123,8 +123,8 @@ def load_ped_cls_1(anno_file, image_dir):
         if has_ped:
             dataset_dicts.append(record)
     logger.info(
-        "Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(
-            instances, ignore_instances, anno_file
+        "Remained image {}. Loaded {} instances and {} ignore instances in CrowdHuman from {}".format(
+            len(dataset_dicts), instances, ignore_instances, anno_file
         )
     )
     return dataset_dicts
@@ -249,8 +249,8 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
         return
 
     # 1. register a function which returns dicts
-    DatasetCatalog.register(name, lambda: load_ped(anno_file, image_dir))
-    # DatasetCatalog.register(name, lambda: load_ped_cls_1(anno_file, image_dir))
+    # DatasetCatalog.register(name, lambda: load_ped(anno_file, image_dir))
+    DatasetCatalog.register(name, lambda: load_ped_cls_1(anno_file, image_dir))
 
     if not isinstance(val_json_files, list):
         val_json_files = [val_json_files]
@@ -269,8 +269,8 @@ def register_ped_instances(name, metadata, anno_file, image_dir, val_json_files)
         for val_json_file in val_json_files:
             if not os.path.exists(val_json_file):
                 is_clip = "clip" in val_json_file
-                convert_to_coco_dict(anno_file, image_dir, val_json_file, is_clip=is_clip)
-                # convert_to_coco_dict_1_cls(anno_file, image_dir, val_json_file, is_clip=is_clip)
+                # convert_to_coco_dict(anno_file, image_dir, val_json_file, is_clip=is_clip)
+                convert_to_coco_dict_1_cls(anno_file, image_dir, val_json_file, is_clip=is_clip)
 
 def convert_to_coco_dict(anno_file, image_dir, json_file, is_clip=True):
     from tqdm import tqdm
