@@ -80,7 +80,7 @@ def build_lr_scheduler(
             optimizer, 
             base_lr=cfg.SOLVER.BASE_LR, # 0.00001
             max_lr=cfg.SOLVER.BASE_LR * 50, # 0.0005
-            step_size_up=5000, # default=2000
+            step_size_up=8000, # default=2000
             )
     else:
         raise ValueError("Unknown LR scheduler: {}".format(name))

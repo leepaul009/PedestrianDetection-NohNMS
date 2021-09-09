@@ -505,5 +505,12 @@ def build_transform_gen(cfg, is_train):
     tfm_gens.append(T.ResizeShortestEdge(min_size, max_size, sample_style))
     if is_train:
         tfm_gens.append(T.RandomFlip())
+        
+        ### additional augmentation
+        if True:
+            tfm_gens.append( T.RandomBrightness(0.9, 1.1) )
+            tfm_gens.append( T.RandomContrast(0.9, 1.1) )
+            tfm_gens.append( T.RandomSaturation(0.9, 1.1) )
+
         logger.info("TransformGens used in training: " + str(tfm_gens))
     return tfm_gens

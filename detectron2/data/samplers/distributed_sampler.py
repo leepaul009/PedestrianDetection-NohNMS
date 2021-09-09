@@ -53,6 +53,9 @@ class TrainingSampler(Sampler):
             else:
                 yield from torch.arange(self._size)
 
+    def update_data_dicts(self, cur_ids, loss_per_image):
+        return
+
 
 class RepeatFactorTrainingSampler(Sampler):
     """

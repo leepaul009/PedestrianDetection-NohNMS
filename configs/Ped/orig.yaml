@@ -48,10 +48,14 @@ INPUT:
   MIN_SIZE_TEST: 850
   MAX_SIZE_TRAIN: 1400
   MAX_SIZE_TEST: 1400
+  CROP:
+    ENABLED: True
+    TYPE: "relative_range"
+    SIZE: [0.7, 0.7]
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
   WITH_HOOKS: True # new_parameter
-  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" # "TrainingSampler"
+  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" # "RepeatFactorTrainingSampler" # def "TrainingSampler"
 DATASETS:
   TRAIN: ("ped_train",)
   TEST: ("ped_val",)
@@ -62,7 +66,7 @@ SOLVER:
   # STEPS: (18750, 24375)
   # MAX_ITER: 128125
   STEPS: (60000, 80000) # new_parameter
-  MAX_ITER: 90000 # 90000 # new_parameter
+  MAX_ITER: 150000 # 90000 # new_parameter
   CHECKPOINT_PERIOD: 1000
   WARMUP_ITERS: 800
   WARMUP_FACTOR: 0.1
@@ -73,4 +77,3 @@ TEST:
   DETECTIONS_PER_IMAGE: 200
 SEED: 11301414
 OUTPUT_DIR: "./Experiments/detectron2/NewPed/noh_nms"
-

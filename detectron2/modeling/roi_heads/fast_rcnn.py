@@ -614,12 +614,6 @@ class FastRCNNOutputLayers(nn.Module):
 
 # new layer
 class FastRCNN2TransformerLayers(nn.Module):
-    """
-    Two linear layers for predicting Fast R-CNN outputs:
-      (1) proposal-to-detection box regression deltas
-      (2) classification scores
-    """
-
     def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4):
         """
         Args:
@@ -636,26 +630,123 @@ class FastRCNN2TransformerLayers(nn.Module):
 
         # The prediction layer for num_classes foreground classes and one background class
         # (hence + 1)
-        self.cls_score = nn.Linear(input_size, num_classes + 1)
+        # self.cls_score = nn.Linear(input_size, num_classes + 1)
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
 
         self.num_encoder = 4
+        self.hidden_dim = 256
+
+        self.cls_score = nn.Linear(self.hidden_dim, num_classes + 1)
+        self.src_embedding = nn.Linear(input_size, self.hidden_dim)
         self.transformer = nn.Transformer(
-            d_model=input_size, nhead=8, 
+            d_model=self.hidden_dim, nhead=8, 
             num_encoder_layers=self.num_encoder, 
             num_decoder_layers=self.num_encoder)
         # sequence length = max number of proposals per batch
         # VERY IMPORTANT: sequence length should be longer than max number of proposals per img
         self.seq_len = 1024
-        self.query_pos = nn.Parameter(torch.rand(self.seq_len, input_size))
-        '''
-        self.tgt_encoder = nn.Linear(5, input_size)
-        '''
+        self.query_pos = nn.Parameter(torch.rand(self.seq_len, self.hidden_dim))
 
+
+        nn.init.normal_(self.src_embedding,    std=0.01)
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
-        for l in [self.cls_score, self.bbox_pred]:
+        for l in [self.cls_score, self.bbox_pred, self.src_embedding]:
+            nn.init.constant_(l.bias, 0)
+
+    # x: [n_propsals, 1024]
+    def forward(self, x, proposals):
+        if x.dim() > 2:
+            x = torch.flatten(x, start_dim=1)
+        device = x.device
+
+        # list, num_proposals of each batch
+        # during inference, num_instance in proposal_per_image is 1000
+        proposal_deltas = self.bbox_pred(x) # [P, 1024] => [P, 4]
+
+        x = self.src_embedding(x) # [P, 1024] => [P, 256]
+        num_preds_per_image = [len(p) for p in proposals]
+        x = x.split(num_preds_per_image, dim=0)
+
+        enc_x = []
+        for i, n_preds in enumerate(num_preds_per_image):
+            # tgt_mask = torch.zeros(self.seq_len, self.seq_len)
+            tgt_key_padding_mask = torch.ones(1, self.seq_len, dtype=torch.bool, device=device) # [N=1, 1024]
+            tgt_key_padding_mask[ :, 0:n_preds ] = False # [N=1, P] <= not mask
+            
+            y = self.transformer(x[i].unsqueeze(1),          # [P, 256] => [P, N=1, 256]
+                                self.query_pos.unsqueeze(1), # [1024, 256]] => [1024, N=1, 256]]
+                                # tgt_mask=tgt_mask, 
+                                tgt_key_padding_mask = tgt_key_padding_mask, # [N=1, 1024]
+                                )
+            enc_x.append( y.squeeze(1)[0:n_preds, :] ) # [T, N=1, H] => [T, H] => [T', H]
+        enc_x = torch.cat(enc_x, dim=0)
+
+        scores = self.cls_score(enc_x) # [P, 256] => [P, 2]
+
+        return scores, proposal_deltas
+
+class AttRCNNLayers(nn.Module):
+
+    def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4, is_train=True):
+        """
+        Args:
+            input_size (int): channels, or (channels, height, width)
+            num_classes (int): number of foreground classes
+            cls_agnostic_bbox_reg (bool): whether to use class agnostic for bbox regression
+            box_dim (int): the dimension of bounding boxes.
+                Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
+        """
+        super(AttRCNNLayers, self).__init__()
+
+        self.is_train = is_train
+        if not isinstance(input_size, int):
+            input_size = np.prod(input_size)
+
+        # The prediction layer for num_classes foreground classes and one background class
+        # (hence + 1)
+        ### input_size(1024) -> 2/4, when C=1
+        # self.cls_score = nn.Linear(input_size, num_classes + 1)
+        # num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
+        # self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+
+
+        ### attention
+        self.num_encoder = 4
+        self.hidden_dim = 256
+
+        ### transformer -> out
+        ### [proposals, 256] -> [proposals, 2/4], when C=1
+        num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
+        # self.bbox_pred = nn.Linear(self.hidden_dim, num_bbox_reg_classes * box_dim)
+        self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+        self.cls_score = nn.Linear(self.hidden_dim, num_classes + 1)
+        
+
+
+        ### input and target embedding
+        ### [proposals, 1024] => [proposals, 256]
+        self.src_embedding = nn.Linear(input_size, self.hidden_dim)
+        ### [proposals, 5(cls+box)] => [proposals, 256]
+        self.tgt_embedding = nn.Linear(5, self.hidden_dim)
+
+        self.transformer = nn.Transformer(
+            d_model=self.hidden_dim, nhead=8, 
+            num_encoder_layers=self.num_encoder, 
+            num_decoder_layers=self.num_encoder)
+        ### seq_len: max number of proposals per image
+        ### VERY IMPORTANT: seq_len >=  max number of proposals per image
+        # self.seq_len = 1024
+        # self.query_pos = nn.Parameter(torch.rand(self.seq_len, self.hidden_dim))
+        # self.predictor = nn.Linear(self.hidden_dim, num_classes + 1) # [proposals, 256] => [proposals, 2]
+        
+        nn.init.normal_(self.src_embedding.weight, std=0.01)
+        nn.init.normal_(self.tgt_embedding.weight, std=0.01)
+        # nn.init.normal_(self.predictor.weight, std=0.01)
+        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.bbox_pred.weight, std=0.001)
+        for l in [self.cls_score, self.bbox_pred, self.src_embedding, self.tgt_embedding]:
             nn.init.constant_(l.bias, 0)
 
     # x: [n_propsals, 1024]
@@ -665,48 +756,54 @@ class FastRCNN2TransformerLayers(nn.Module):
         
         device = x.device
 
-        '''
-        gt_boxes = [p.gt_boxes.tensor for p in proposals]
-        gt_classes = [p.gt_classes for p in proposals]
-        '''
-        # for b, c in zip(gt_boxes, gt_classes):
-        #     print("- - gt_box={}, gt_class={}".format( b.shape, c.shape ))
-
         # list, num_proposals of each batch
         # during inference, num_instance in proposal_per_image is 1000
-        proposal_deltas = self.bbox_pred(x) # [n_propsals, 1024] =>
+        # define self.bbox_pred as (1024->4)
+        proposal_deltas = self.bbox_pred(x) # [propsals, 1024] =>  [propsals, 4]
 
+        # is_train = False
+        # if proposals[0].has("gt_boxes"):
+        #     is_train = True
+
+        x = self.src_embedding(x) # [proposals, 1024] => [proposals, 256]
+        
         num_preds_per_image = [len(p) for p in proposals]
-        x = x.split(num_preds_per_image, dim=0)
-        bs = len(num_preds_per_image)
-        enc_x = []
-        for i in range(bs):
-
-            '''
-            gt_box = gt_boxes[i]   # [n_proposals, 4]
-            gt_cls = gt_classes[i] # [n_proposals,]
-            tgt_embed = torch.cat([gt_box, gt_cls.unsqueeze(1)], dim=1)
-            tgt_embed = self.tgt_encoder(tgt_embed) # [n_proposals, 5] => [n_proposals, input_size]
-            '''
-
-            # tgt_mask = torch.zeros(self.seq_len, self.seq_len)
-            tgt_key_padding_mask = torch.ones(1, self.seq_len)
-            tgt_key_padding_mask = tgt_key_padding_mask.to(device)
-            tgt_key_padding_mask[ :, 0:num_preds_per_image[i] ] = 0
-            tgt_key_padding_mask = tgt_key_padding_mask == 1
+        x = x.split(num_preds_per_image, dim=0) # => list of x_per_image, [x0, x1 ...]
+        outs = []
+        ### for each image
+        for i in range(len(num_preds_per_image)):
             
-            # print(" * * * batch {}, x_i.shape={}".format( i, x[i].shape ))
-            y = self.transformer(x[i].unsqueeze(1), 
-                                self.query_pos.unsqueeze(1), # tgt_embed
-                                # tgt_mask=tgt_mask, 
-                                tgt_key_padding_mask = tgt_key_padding_mask,
-                                )
-            enc_x.append( y.squeeze(1)[0:num_preds_per_image[i], :] )
-        enc_x = torch.cat(enc_x, dim=0)
+            if proposals[0].has("gt_boxes"): # is train
+                gt_box = proposals[i].gt_boxes.tensor # [proposals, 4]
+                gt_cls = proposals[i].gt_classes      # [proposals,]
+                tgt_emb = torch.cat([gt_box, gt_cls.unsqueeze(1)], dim=1)
+                tgt_emb = self.tgt_embedding(tgt_emb).unsqueeze(1) # [proposals, 5] => [proposals, 256] => [proposals, 1, 256]
+                out = self.transformer(
+                        x[i].unsqueeze(1), # [T, N=1, H]
+                        tgt_emb,           # [T, N=1, H]
+                        )
+                outs.append( out.squeeze(1) ) # [T, N=1, H] => [T, H]
+            else:
+                # self.transformer.encoder(src, src_mask)
+                # self.transformer.decoder(tgt, memory, gt_mask)
+                memory = self.transformer.encoder(x[i].unsqueeze(1))
 
-        scores = self.cls_score(enc_x)          # [n_propsals, 1024] => 
-        # proposal_deltas = self.bbox_pred(enc_x) # [n_propsals, 1024] =>
+                ########## PED TODO:
+                tgt = torch.rand(num_preds_per_image[i], 5)
+                tgt_emb = self.tgt_embedding(tgt).unsqueeze(1)
+                out = self.transformer.decoder(tgt_emb, memory)
 
-        # print(" * * * score = {}, delta = {} ".format( scores.shape, proposal_deltas.shape ))
+                '''
+                output = torch.ones(1, 5)
+                for t in range(1, num_preds_per_image[i]):
+                    tgt_emb = self.tgt_embedding(output[:, :t]).unsqueeze(1) # [T, 5]=>[T, 1, H]
+                    decoder_output  = self.transformer.decoder(tgt_emb, memory)
+                    pred_proba_t = self.predictor(decoder_output) # [T, 1, H] => [T, 1, 2]
+                    output_t = pred_proba_t.max(-1)[1] # [T, 1, 2] => [T, 1]
+                    output[:, t] = output_t
+                '''
 
+                outs.append( out.squeeze(1) ) # [T, N=1, H] => [T, H]
+        outs = torch.cat(outs, dim=0)
+        scores = self.cls_score(outs) # [propsals, 256] => [propsals, 2]
         return scores, proposal_deltas
