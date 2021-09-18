@@ -177,13 +177,13 @@ class CrowdHumanEvaluator(DatasetEvaluator):
             name = gt_json.split("/")[-1].split(".")[0]
 
             cocoGt = COCO(gt_json)
-
-            # remove category
-            # removed_cate = cocoGt.dataset['categories'].pop()
-            # print("Remove category {} from cocoGT.".format(removed_cate))
-
             cocoDt = cocoGt.loadRes(res_file) 
             coco_eva = COCOeval(cocoGt, cocoDt, 'bbox')
+
+            img_ids_in_cat = set(cocoGt.catToImgs[1])
+            coco_eva.params.catIds = [1] #person id : 1
+            coco_eva.params.imgIds = list(img_ids_in_cat)
+
             coco_eva.evaluate()
             coco_eva.accumulate()
             coco_eva.summarize()

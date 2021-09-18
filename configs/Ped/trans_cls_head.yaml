@@ -19,16 +19,18 @@ INPUT:
   MAX_SIZE_TRAIN: 1400
   MAX_SIZE_TEST: 1400
 DATALOADER:
-  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" # "TrainingSampler"
-DATASETS:
-  TRAIN: ("ped_train",)
-  TEST: ("ped_val",)
-  INFER: ("ped_test", )
+  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" # TrainingSampler  RepeatFactorTrainingSampler
+# DATASETS:
+#   TRAIN: ("ped_train",)
+#   TEST: ("ped_val",)
+#   INFER: ("ped_test", )
 SOLVER:
   IMS_PER_BATCH: 2
   BASE_LR: 0.0001
   CHECKPOINT_PERIOD: 1000
   LR_SCHEDULER_NAME: "cycle"
+  LOSS_WEIGHT_BOX: 1.0    # def 1.0
+  LOSS_WEIGHT_LOGIC: 1.0  # def 1.0
 TEST:
   EVAL_PERIOD: 2000
   EVAL_START: 30000

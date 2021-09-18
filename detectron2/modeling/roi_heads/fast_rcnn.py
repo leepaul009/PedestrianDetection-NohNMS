@@ -152,6 +152,9 @@ class FastRCNNOutputs(object):
         smooth_l1_beta,
         giou=False,
         allow_oob=False,
+        sample_type=None,
+        loss_weight_box=1.0,
+        loss_weight_logic=1.0,
     ):
         """
         Args:
@@ -181,6 +184,9 @@ class FastRCNNOutputs(object):
         self.smooth_l1_beta = smooth_l1_beta
         self.giou = giou
         self.allow_oob = allow_oob
+        self.sample_type = sample_type
+        self.loss_weight_box = loss_weight_box
+        self.loss_weight_logic = loss_weight_logic
 
         box_type = type(proposals[0].proposal_boxes)
         # cat(..., dim=0) concatenates over all images in the batch
@@ -339,7 +345,7 @@ class FastRCNNOutputs(object):
 
         
         #################
-        if True:
+        if True and self.sample_type == "RepeatFactorTrainingSampler":
             max_score, _      = torch.max(self.pred_class_logits[:, :-1], dim=1)
             pred_class_logits = torch.stack([max_score, self.pred_class_logits[:, -1]], axis=1)
             
@@ -446,8 +452,9 @@ class FastRCNNOutputs(object):
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_box_reg".
         """
         return {
-            "loss_cls": self.matching_softmax_cross_entropy_loss(),
-            "loss_box_reg": self.smooth_l1_loss() if not self.giou else self.giou_loss(),
+            "loss_cls": self.matching_softmax_cross_entropy_loss()*self.loss_weight_logic,
+            "loss_box_reg": self.smooth_l1_loss()*self.loss_weight_box \
+                            if not self.giou else self.giou_loss()*self.loss_weight_box,
         }
 
     def giou_loss(self, eps=1e-7):
@@ -632,13 +639,15 @@ class FastRCNN2TransformerLayers(nn.Module):
         # (hence + 1)
         # self.cls_score = nn.Linear(input_size, num_classes + 1)
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
-        self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+        # self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
 
         self.num_encoder = 4
         self.hidden_dim = 256
 
-        self.cls_score = nn.Linear(self.hidden_dim, num_classes + 1)
         self.src_embedding = nn.Linear(input_size, self.hidden_dim)
+        self.cls_score = nn.Linear(self.hidden_dim, num_classes + 1)
+        self.bbox_pred = nn.Linear(self.hidden_dim, num_bbox_reg_classes * box_dim)
+        
         self.transformer = nn.Transformer(
             d_model=self.hidden_dim, nhead=8, 
             num_encoder_layers=self.num_encoder, 
@@ -649,7 +658,84 @@ class FastRCNN2TransformerLayers(nn.Module):
         self.query_pos = nn.Parameter(torch.rand(self.seq_len, self.hidden_dim))
 
 
-        nn.init.normal_(self.src_embedding,    std=0.01)
+        nn.init.normal_(self.src_embedding.weight, std=0.01)
+        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.bbox_pred.weight, std=0.001)
+        for l in [self.cls_score, self.bbox_pred, self.src_embedding]:
+            nn.init.constant_(l.bias, 0)
+
+    # x: [n_propsals, 1024]
+    def forward(self, x, proposals):
+        if x.dim() > 2:
+            x = torch.flatten(x, start_dim=1)
+        device = x.device
+
+        # list, num_proposals of each batch
+        # during inference, num_instance in proposal_per_image is 1000
+        # proposal_deltas = self.bbox_pred(x) # [P, 1024] => [P, 4]
+
+        x = self.src_embedding(x) # [P, 1024] => [P, 256]
+        num_preds_per_image = [len(p) for p in proposals]
+        x = x.split(num_preds_per_image, dim=0)
+
+        enc_x = []
+        for i, n_preds in enumerate(num_preds_per_image):
+            # tgt_mask = torch.zeros(self.seq_len, self.seq_len)
+            tgt_key_padding_mask = torch.ones(1, self.seq_len, dtype=torch.bool, device=device) # [N=1, 1024]
+            tgt_key_padding_mask[ :, 0:n_preds ] = False # [N=1, P] <= not mask
+            
+            y = self.transformer(x[i].unsqueeze(1),          # [P, 256] => [P, N=1, 256]
+                                self.query_pos.unsqueeze(1), # [1024, 256]] => [1024, N=1, 256]]
+                                # tgt_mask=tgt_mask, 
+                                tgt_key_padding_mask = tgt_key_padding_mask, # [N=1, 1024]
+                                )
+            enc_x.append( y.squeeze(1)[0:n_preds, :] ) # [T, N=1, H] => [T, H] => [T', H]
+        enc_x = torch.cat(enc_x, dim=0)
+
+        scores          = self.cls_score(enc_x) # [P, 256] => [P, 2]
+        proposal_deltas = self.bbox_pred(enc_x) # [P, 256] => [P, 4]
+
+        return scores, proposal_deltas
+
+class FastRCNN2TransformerLayers1(nn.Module):
+    def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4):
+        """
+        Args:
+            input_size (int): channels, or (channels, height, width)
+            num_classes (int): number of foreground classes
+            cls_agnostic_bbox_reg (bool): whether to use class agnostic for bbox regression
+            box_dim (int): the dimension of bounding boxes.
+                Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
+        """
+        super(FastRCNN2TransformerLayers, self).__init__()
+
+        if not isinstance(input_size, int):
+            input_size = np.prod(input_size)
+
+        # The prediction layer for num_classes foreground classes and one background class
+        # (hence + 1)
+        # self.cls_score = nn.Linear(input_size, num_classes + 1)
+        num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
+        self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+
+        self.num_encoder = 4
+        self.hidden_dim = 256
+
+        self.src_embedding = nn.Linear(input_size, self.hidden_dim)
+        self.cls_score = nn.Linear(self.hidden_dim, num_classes + 1)
+        # self.bbox_pred = nn.Linear(self.hidden_dim, num_bbox_reg_classes * box_dim)
+        
+        self.transformer = nn.Transformer(
+            d_model=self.hidden_dim, nhead=8, 
+            num_encoder_layers=self.num_encoder, 
+            num_decoder_layers=self.num_encoder)
+        # sequence length = max number of proposals per batch
+        # VERY IMPORTANT: sequence length should be longer than max number of proposals per img
+        self.seq_len = 1024
+        self.query_pos = nn.Parameter(torch.rand(self.seq_len, self.hidden_dim))
+
+
+        nn.init.normal_(self.src_embedding.weight, std=0.01)
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
         for l in [self.cls_score, self.bbox_pred, self.src_embedding]:
@@ -683,9 +769,12 @@ class FastRCNN2TransformerLayers(nn.Module):
             enc_x.append( y.squeeze(1)[0:n_preds, :] ) # [T, N=1, H] => [T, H] => [T', H]
         enc_x = torch.cat(enc_x, dim=0)
 
-        scores = self.cls_score(enc_x) # [P, 256] => [P, 2]
+        scores          = self.cls_score(enc_x) # [P, 256] => [P, 2]
+        # proposal_deltas = self.bbox_pred(enc_x) # [P, 256] => [P, 4]
 
         return scores, proposal_deltas
+
+
 
 class AttRCNNLayers(nn.Module):
 

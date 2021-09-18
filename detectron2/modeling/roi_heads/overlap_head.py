@@ -218,6 +218,9 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
         overlap_configs=dict(),
         giou=False,
         allow_oob=False,
+        sample_type=None,
+        loss_weight_box=1.0,
+        loss_weight_logic=1.0,
     ):
         """
         Args:
@@ -259,6 +262,9 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
 
         self.giou = giou
         self.allow_oob = allow_oob
+        self.sample_type = sample_type
+        self.loss_weight_box = loss_weight_box
+        self.loss_weight_logic = loss_weight_logic
 
         box_type = type(proposals[0].proposal_boxes)
         # cat(..., dim=0) concatenates over all images in the batch
@@ -354,8 +360,9 @@ class OverlapFastRCNNOutputs(FastRCNNOutputs):
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_box_reg".
         """
         loss_dict = {
-            "loss_cls": self.softmax_cross_entropy_loss(),
-            "loss_box_reg": self.smooth_l1_loss() if not self.giou else self.giou_loss(),
+            "loss_cls": self.softmax_cross_entropy_loss()*self.loss_weight_logic,
+            "loss_box_reg": self.smooth_l1_loss()*self.loss_weight_box \
+                            if not self.giou else self.giou_loss()*self.loss_weight_box,
         }
         loss_dict.update(self.overlap_losses())
         return loss_dict

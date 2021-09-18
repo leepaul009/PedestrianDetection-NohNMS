@@ -26,6 +26,7 @@ from .cityscapes import load_cityscapes_instances, load_cityscapes_semantic
 from .pascal_voc import register_pascal_voc
 from .crowdhuman import register_crowdhuman_instances
 from .ped import register_ped_instances
+from .pedetect import register_pedetect_instances
 from .builtin_meta import _get_builtin_metadata
 
 
@@ -249,10 +250,27 @@ def register_all_pascal_voc(root="datasets"):
         MetadataCatalog.get(name).evaluator_type = "pascal_voc"
 
 
+_PREDEFINED_SPLITS_PEDETECT = {
+    "pedetect_train": ("ped/images/train", "ped/annotations/dhd_traffic_train.json"),
+    "pedetect_val":   ("ped/images/test", "ped/annotations/dhd_traffic_val.json"),
+    "pedetect_test":  ("ped/images/test", "ped/annotations/test.csv"),
+}
+
+def register_all_pedetect(root="datasets"):
+    for key, (image_dir, anno_file) in _PREDEFINED_SPLITS_PEDETECT.items():
+        register_pedetect_instances(
+            key,
+            _get_builtin_metadata("ped"),
+            os.path.join(root, anno_file),
+            os.path.join(root, image_dir),
+            os.path.join(root, "ped/annotations/dhd_traffic_val.json"),
+        )
+
 # Register them all under "./datasets"
-register_all_coco()
-register_all_lvis()
-register_all_cityscapes()
-register_all_pascal_voc()
-register_all_crowdhuman()
+# register_all_coco()
+# register_all_lvis()
+# register_all_cityscapes()
+# register_all_pascal_voc()
+# register_all_crowdhuman()
 register_all_ped()
+register_all_pedetect()

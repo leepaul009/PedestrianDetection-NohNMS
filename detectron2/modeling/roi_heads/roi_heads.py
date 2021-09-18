@@ -148,6 +148,9 @@ class ROIHeads(torch.nn.Module):
         self.smooth_l1_beta           = cfg.MODEL.ROI_BOX_HEAD.SMOOTH_L1_BETA
         self.iou_thresholds           = cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS
         self.ignore_ioa               = cfg.MODEL.ROI_HEADS.IGNORE_IOA
+        self.sample_type              = cfg.DATALOADER.SAMPLER_TRAIN
+        self.loss_weight_box          = cfg.SOLVER.LOSS_WEIGHT_BOX
+        self.loss_weight_logic        = cfg.SOLVER.LOSS_WEIGHT_LOGIC
         # TODO deprecate the following two attributes, in favor of input_shape
         self.feature_strides          = {k: v.stride for k, v in input_shape.items()}
         self.feature_channels         = {k: v.channels for k, v in input_shape.items()}
@@ -817,6 +820,9 @@ class StandardROIHeads(ROIHeads):
                 overlap_configs=self.overlap_configs,
                 giou=self.giou,
                 allow_oob=self.allow_oob,
+                sample_type=self.sample_type,
+                loss_weight_box=self.loss_weight_box,
+                loss_weight_logic=self.loss_weight_logic,
             )
 
             self.loss_per_image = outputs.loss_per_image
@@ -840,6 +846,9 @@ class StandardROIHeads(ROIHeads):
                 self.smooth_l1_beta,
                 giou=self.giou,
                 allow_oob=self.allow_oob,
+                sample_type=self.sample_type,
+                loss_weight_box=self.loss_weight_box,
+                loss_weight_logic=self.loss_weight_logic,
             )
 
         if self.training:

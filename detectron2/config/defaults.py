@@ -559,6 +559,10 @@ _C.SOLVER.IMS_PER_BATCH = 16
 _C.SOLVER.BIAS_LR_FACTOR = 1.0
 _C.SOLVER.WEIGHT_DECAY_BIAS = _C.SOLVER.WEIGHT_DECAY
 
+### loss weight
+_C.SOLVER.LOSS_WEIGHT_BOX = 1.0
+_C.SOLVER.LOSS_WEIGHT_LOGIC = 1.0
+
 # ---------------------------------------------------------------------------- #
 # Specific test options
 # ---------------------------------------------------------------------------- #

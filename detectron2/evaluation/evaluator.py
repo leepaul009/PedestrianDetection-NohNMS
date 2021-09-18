@@ -160,8 +160,8 @@ def inference_on_dataset(model, data_loader, evaluator):
     )
 
     ### PEDTODO
-    results = evaluator.evaluate()
-    # results = evaluator.coco_evaluate()
+    # results = evaluator.evaluate()
+    results = evaluator.coco_evaluate()
     # An evaluator may return None when not in main process.
     # Replace it by an empty dict instead to make it easier for downstream code to handle
     if results is None:

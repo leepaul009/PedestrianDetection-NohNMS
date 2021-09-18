@@ -93,8 +93,9 @@ class RepeatFactorTrainingSampler(Sampler):
         self._int_part = torch.trunc(rep_factors)
         self._frac_part = rep_factors - self._int_part
 
-        self.additional_ids = None
-        self.additional_losses = None
+        self.cornercase_ids = None
+        self.cornercase_losses = None
+        self.debug = False # True
 
     def _get_repeat_factors(self, dataset_dicts, repeat_thresh):
         """
@@ -156,34 +157,77 @@ class RepeatFactorTrainingSampler(Sampler):
         for dataset_index, rep_factor in enumerate(rep_factors):
             indices.extend([dataset_index] * int(rep_factor.item()))
 
-        # print(" * * * * * * R.{}  indices:{}".format( self._rank, len(indices) ))
+        #### DEBUG
+        if self.debug: # False True
+            indices = indices[:40]
+        
+        if True:
+            g = torch.Generator()
+            g.manual_seed(self._seed)
+            randperm = torch.randperm(len(indices), generator=g)
+            if self.debug:
+                print("* * * [Sampler] rank-{}: randperm: {}".format( self._rank, randperm ))
+
+            indices = torch.tensor(indices, dtype=torch.int64)
+            indices = indices[randperm].tolist()
+            iter = itertools.islice(indices, self._rank, None, self._world_size)
+            indices = [i for i in iter]
+            print("* * * [Sampler] rank-{}: Create indices (len:{}) {} ".format( self._rank, len(indices), indices[:10] ))
+
+            if torch.is_tensor(self.cornercase_ids) and torch.is_tensor(self.cornercase_losses):
+                print("* * * [Sampler] rank-{}: Start to add cornercase".format( self._rank ))
+                sorted_loss, _sorted_key = torch.sort(self.cornercase_losses, descending=True)
+                sorted_ids = self.cornercase_ids[_sorted_key]
+                print("* * * [Sampler] rank-{} orig_indices_len={}, corner_case_len={}, sorted_ids: {}, sorted_loss: {}"
+                    .format( self._rank, len(indices), sorted_ids.shape[0], sorted_ids[:10], sorted_loss[:10] ))
+                
+                n_items    = min( 500, int(sorted_ids.shape[0]) )
+                rep_factor = 4
+                indices.extend( sorted_ids[:n_items].tolist() * rep_factor )
+
+                if self.debug:
+                    print("* * * [Sampler] rank-{}: get final indices {}".format( self._rank, indices ))
+                self.cornercase_ids = None
+                self.cornercase_losses = None
 
         # train more on the data
-        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
+        if False:
+            if torch.is_tensor(self.cornercase_ids) and torch.is_tensor(self.cornercase_losses):
+                print("* * * * * * [Sampler] rank-{} start to add cornercase".format( self._rank ))
+                assert self.cornercase_ids.shape[0] == self.cornercase_losses.shape[0], "size not match!"
+                ### merge
+                comm.synchronize()
+                self.cornercase_ids    = comm.all_gather(self.cornercase_ids)
+                self.cornercase_losses = comm.all_gather(self.cornercase_losses)
+                comm.synchronize()
+                print("* * * [Sampler] rank-{} merge output type: {}, {}"
+                    .format( self._rank, type(self.cornercase_ids), len(self.cornercase_ids)  ))
+                self.cornercase_ids    = torch.cat(self.cornercase_ids)
+                self.cornercase_losses = torch.cat(self.cornercase_losses)
+                ### sort
+                sorted_loss, _sorted_key = torch.sort(self.cornercase_losses, descending=True)
+                sorted_ids = self.cornercase_ids[_sorted_key]
+                
+                print("* * * [Sampler] rank-{} orig_indices_len={}, corner_case_len={}, sorted_ids: {}, sorted_loss: {}"
+                    .format( self._rank, len(indices), sorted_ids.shape[0], sorted_ids[:10], sorted_loss[:10] ))
 
-            assert self.additional_ids.shape[0] == self.additional_losses.shape[0], "size not match!"
-
-            sorted_loss, _sorted_key = torch.sort(self.additional_losses, descending=True)
-            sorted_ids = self.additional_ids[_sorted_key]
-            
-            print(" + + + * * * * * * R.{}  indices:{}, sorted_ids: {}, sorted_loss: {}"
-                .format( self._rank, len(indices), sorted_ids[:10], sorted_loss[:10] ))
-
-            sorted_ids = sorted_ids[:800]
-            for import_id in sorted_ids:
-                rep_factor = 4 * 4
-
-                indices.extend([import_id] * int(rep_factor))
-            
-            # clear 
-            self.additional_ids = None
-            self.additional_losses = None
+                # sorted_ids = sorted_ids[:400]
+                n_items = min( 500, int(sorted_ids.shape[0]) )
+                # sorted_ids = sorted_ids[self._rank*n_items : (self._rank+1)*n_items]
+                for import_id in sorted_ids[:n_items]:
+                    rep_factor = 4 # * self._world_size
+                    indices.extend([import_id] * int(rep_factor))
+                
+                # clear 
+                self.cornercase_ids = None
+                self.cornercase_losses = None
 
         return torch.tensor(indices, dtype=torch.int64)
 
     def __iter__(self):
-        start = self._rank
-        yield from itertools.islice(self._infinite_indices(), start, None, self._world_size)
+        # start = self._rank
+        # yield from itertools.islice(self._infinite_indices(), start, None, self._world_size)
+        yield from itertools.islice(self._infinite_indices(), 0, None, 1)  
 
     def _infinite_indices(self):
         g = torch.Generator()
@@ -202,38 +246,45 @@ class RepeatFactorTrainingSampler(Sampler):
     # cur_ids:          [batch_per_work,]
     # loss_per_image:   [batch_per_work,]
     def update_data_dicts(self, cur_ids, loss_per_image):
-        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
-            self.additional_ids    = torch.cat([self.additional_ids,    cur_ids])
-            self.additional_losses = torch.cat([self.additional_losses, loss_per_image])
+        if torch.is_tensor(self.cornercase_ids) and torch.is_tensor(self.cornercase_losses):
+            self.cornercase_ids    = torch.cat([self.cornercase_ids,    cur_ids])
+            self.cornercase_losses = torch.cat([self.cornercase_losses, loss_per_image])
 
-            assert self.additional_ids.shape[0] == self.additional_losses.shape[0]
+            assert self.cornercase_ids.shape[0] == self.cornercase_losses.shape[0]
+            sorted_loss, sorted_key = torch.sort(self.cornercase_losses, descending=True)
+            self.cornercase_ids     = self.cornercase_ids[sorted_key]
+            self.cornercase_losses  = sorted_loss
+
+            if self.cornercase_ids.shape[0] > 1000:
+                self.cornercase_ids     = self.cornercase_ids[:500]
+                self.cornercase_losses  = self.cornercase_losses[:500]
         else: # init
-            self.additional_ids    = cur_ids
-            self.additional_losses = loss_per_image
+            self.cornercase_ids    = cur_ids
+            self.cornercase_losses = loss_per_image
 
     def update_data_dicts2(self, cur_ids, loss_per_image):
-        if torch.is_tensor(self.additional_ids) and torch.is_tensor(self.additional_losses):
+        if torch.is_tensor(self.cornercase_ids) and torch.is_tensor(self.cornercase_losses):
             
             comm.synchronize()
 
-            self.additional_ids    = torch.cat([self.additional_ids, cur_ids])
-            self.additional_losses = torch.cat([self.additional_losses, loss_per_image])
+            self.cornercase_ids    = torch.cat([self.cornercase_ids, cur_ids])
+            self.cornercase_losses = torch.cat([self.cornercase_losses, loss_per_image])
 
-            assert self.additional_ids.shape[0] == self.additional_losses.shape[0]
+            assert self.cornercase_ids.shape[0] == self.cornercase_losses.shape[0]
 
             print(" * * * * * * + + + R.{}  ids:{}, loss:{}"
-                .format( self._rank, self.additional_ids, self.additional_losses ))
+                .format( self._rank, self.cornercase_ids, self.cornercase_losses ))
 
-            self.additional_ids    = comm.all_gather(self.additional_ids)
-            self.additional_losses = comm.all_gather(self.additional_losses)
+            self.cornercase_ids    = comm.all_gather(self.cornercase_ids)
+            self.cornercase_losses = comm.all_gather(self.cornercase_losses)
             print(" * * * * * * + + + + + + R.{}  ids:{}, loss:{}"
-                .format( self._rank, self.additional_ids, self.additional_losses ))
+                .format( self._rank, self.cornercase_ids, self.cornercase_losses ))
 
             comm.synchronize()
 
         else: # init
-            self.additional_ids    = cur_ids
-            self.additional_losses = loss_per_image
+            self.cornercase_ids    = cur_ids
+            self.cornercase_losses = loss_per_image
 
 
 class InferenceSampler(Sampler):

@@ -4,7 +4,7 @@ MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone_better"
-    FREEZE_AT: 0 # 0
+    FREEZE_AT: 2 # 0
   MASK_ON: False
   RESNETS:
     DEPTH: 50
@@ -27,9 +27,11 @@ MODEL:
     FREEZE_RPN_HEAD: False # def False
   ALLOW_BOX_OUT_OF_BOUNDARY: True
   ROI_BOX_HEAD:
+    CLS_AGNOSTIC_BBOX_REG: True
     SMOOTH_L1_BETA: 1.0
     ATTENTION: False # def False
   ROI_HEADS:
+    NAME: CascadeROIHeads
     NUM_CLASSES: 1 # to update from 1 -> 2
     IGNORE_IOA: True
     POSITIVE_FRACTION: 0.5
@@ -45,7 +47,7 @@ MODEL:
     PROB_LOSS_BETA: 0.02
 INPUT:
   # (?, ) together with MIN_SIZE_TRAIN_SAMPLING = "choice", else (?,?) with "range"
-  MIN_SIZE_TRAIN: (850, ) # def=800, short_edge_length
+  MIN_SIZE_TRAIN: (750, 800, 850, ) # def=800, short_edge_length
   MIN_SIZE_TEST: 850
   MAX_SIZE_TRAIN: 1400
   MAX_SIZE_TEST: 1400
@@ -57,16 +59,16 @@ DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
   WITH_HOOKS: True # new_parameter
   # RepeatFactorTrainingSampler or TrainingSampler(def)
-  SAMPLER_TRAIN: "RepeatFactorTrainingSampler" 
+  SAMPLER_TRAIN: "RepeatFactorTrainingSampler"
 DATASETS:
-  TRAIN: ("pedetect_train",)
-  TEST:  ("pedetect_val",)
-  INFER: ("pedetect_test", )
+  TRAIN: ("ped_train",)
+  TEST: ("ped_val",)
+  INFER: ("ped_test", )
 SOLVER:
   IMS_PER_BATCH: 2
   BASE_LR: 0.0001
-  STEPS: (60000, 78000)
-  MAX_ITER: 90000 
+  STEPS: (210000, 250000) # (60000, 78000) # new_parameter
+  MAX_ITER: 270000        # 90000 # new_parameter
   CHECKPOINT_PERIOD: 1000
   WARMUP_ITERS: 800
   WARMUP_FACTOR: 0.1
@@ -78,4 +80,4 @@ TEST:
   EVAL_START: 30000
   DETECTIONS_PER_IMAGE: 200
 SEED: 11301414
-OUTPUT_DIR: "./Experiments/detectron2/NewPed/noh_nms"
+OUTPUT_DIR: "./Experiments/detectron2/NewPed/cascade"
