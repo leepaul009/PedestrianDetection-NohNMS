@@ -50,8 +50,8 @@ class PedEvaluator(DatasetEvaluator):
 
                 for box_i, score_i in zip(instances.pred_boxes, instances.scores):
                     score_i = score_i.cpu().item()
-                    if score_i < .5:
-                        continue
+                    # if score_i < .5:
+                    #     continue
                     x1, y1, x2, y2 = list(map(int, box_i.cpu().tolist()))
                     x, y, w, h = x1, y1, x2 - x1, y2 - y1
                     self.data_dict["image_id"].append( record["image_id"] - 1 )
@@ -67,23 +67,19 @@ class PedEvaluator(DatasetEvaluator):
             comm.synchronize()
             self._predictions = comm.gather(self._predictions, dst=0)
             # self._predictions = list(itertools.chain(*self._predictions))
-
-
             if not comm.is_main_process():
                 return {}
 
         output_file = os.path.join(self._output_dir, "output.pth")
         torch.save(self._predictions, output_file)
 
-        
         df = pd.DataFrame(self.data_dict)
-
-        df_path = os.path.join(self._output_dir, "submit_50.csv")
+        df_path = os.path.join(self._output_dir, "submit_00.csv")
         df.to_csv(df_path, index=False)
-
-        df75 = df[ df['score'] > .75 ]
-        df_path = os.path.join(self._output_dir, "submit_75.csv")
-        df75.to_csv(df_path, index=False)
+        
+        df50 = df[ df['score'] > .5 ]
+        df_path = os.path.join(self._output_dir, "submit_50.csv")
+        df50.to_csv(df_path, index=False)
 
         results = None
         return results
