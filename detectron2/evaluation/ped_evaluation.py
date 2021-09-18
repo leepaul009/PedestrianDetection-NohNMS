@@ -89,17 +89,4 @@ class PedEvaluator(DatasetEvaluator):
         return results
     
     def coco_evaluate(self):
-        if self._distributed:
-            comm.synchronize()
-            self._predictions = comm.gather(self._predictions, dst=0)
-            # self._predictions = list(itertools.chain(*self._predictions))
-
-
-            if not comm.is_main_process():
-                return {}
-
-        output_file = os.path.join(self._output_dir, "output.pth")
-        torch.save(self._predictions, output_file)
-        
-        results = None
-        return results
+        return self.evaluate()
