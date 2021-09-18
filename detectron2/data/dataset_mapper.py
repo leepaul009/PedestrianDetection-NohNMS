@@ -80,10 +80,10 @@ class DatasetMapper:
         image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
         utils.check_image_size(dataset_dict, image)
 
-        # if self.is_infer:
-        #     transforms = None
-        # elif "annotations" not in dataset_dict:
-        if "annotations" not in dataset_dict:
+        if self.is_infer:
+            transforms = None
+        elif "annotations" not in dataset_dict:
+        # if "annotations" not in dataset_dict:
             image, transforms = T.apply_transform_gens(
                 ([self.crop_gen] if self.crop_gen else []) + self.tfm_gens, image
             )
