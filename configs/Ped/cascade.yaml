@@ -31,7 +31,7 @@ MODEL:
     SMOOTH_L1_BETA: 1.0
     ATTENTION: False # def False
   ROI_HEADS:
-    NAME: CascadeROIHeads
+    NAME: CascadeMutationROIHeads # CascadeROIHeads
     NUM_CLASSES: 1 # to update from 1 -> 2
     IGNORE_IOA: True
     POSITIVE_FRACTION: 0.5
@@ -47,7 +47,7 @@ MODEL:
     PROB_LOSS_BETA: 0.02
 INPUT:
   # (?, ) together with MIN_SIZE_TRAIN_SAMPLING = "choice", else (?,?) with "range"
-  MIN_SIZE_TRAIN: (750, 800, 850, ) # def=800, short_edge_length
+  MIN_SIZE_TRAIN: (850, ) # def=800, short_edge_length
   MIN_SIZE_TEST: 850
   MAX_SIZE_TRAIN: 1400
   MAX_SIZE_TEST: 1400
@@ -67,8 +67,8 @@ DATASETS:
 SOLVER:
   IMS_PER_BATCH: 2
   BASE_LR: 0.0001
-  STEPS: (210000, 250000) # (60000, 78000) # new_parameter
-  MAX_ITER: 270000        # 90000 # new_parameter
+  STEPS: (60000, 78000) # (60000, 78000) 210000, 250000 # new_parameter
+  MAX_ITER: 90000        # 90000 270000 # new_parameter
   CHECKPOINT_PERIOD: 1000
   WARMUP_ITERS: 800
   WARMUP_FACTOR: 0.1
