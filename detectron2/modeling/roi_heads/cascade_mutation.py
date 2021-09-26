@@ -39,7 +39,9 @@ class CascadeMutationROIHeads(StandardROIHeads):
         cascade_iou_label        = cfg.MODEL.ROI_HEADS.IOU_LABELS # [0, 1]
 
         ## OVERLAP
-        # self.overlap_enable      = cfg.MODEL.OVERLAP_BOX_HEAD.ENABLE
+        self.giou                = cfg.MODEL.ROI_BOX_HEAD.GIoU
+        self.allow_oob           = cfg.MODEL.ALLOW_BOX_OUT_OF_BOUNDARY
+        self.overlap_enable      = cfg.MODEL.OVERLAP_BOX_HEAD.ENABLE
 
         self.num_cascade_stages  = len(cascade_ious)
         assert len(cascade_bbox_reg_weights) == self.num_cascade_stages
@@ -79,27 +81,26 @@ class CascadeMutationROIHeads(StandardROIHeads):
 
             ############
             ## OVERLAP: when last stage
-            # if self.overlap_enable and k == self.num_cascade_stages-1: 
-            #     # self._init_overlap_head(cfg, input_shape, in_channels, pooler_resolution)
-            #     self.build_on_roi_feature = cfg.MODEL.OVERLAP_BOX_HEAD.BUILD_ON_ROI_FEATURE
-            #     self.sigmoid_on           = cfg.MODEL.OVERLAP_BOX_HEAD.SIGMOID_ON
-
-            #     self.overlap_configs = {
-            #         "overlap_iou_threshold":  cfg.MODEL.OVERLAP_BOX_HEAD.OVERLAP_IOU_THRESHOLD,
-            #         "loss_overlap_reg_coeff": cfg.MODEL.OVERLAP_BOX_HEAD.REG_LOSS_COEFF,
-            #         "uniform_reg_divisor":    cfg.MODEL.OVERLAP_BOX_HEAD.UNIFORM_REG_DIVISOR,
-            #         "cls_box_beta":           cfg.MODEL.OVERLAP_BOX_HEAD.PROB_LOSS_BETA,
-            #     }
-            #     if self.build_on_roi_feature:
-            #         self.overlap_head = build_box_head(
-            #             cfg,
-            #             ShapeSpec(channels=in_channels, height=pooler_resolution, width=pooler_resolution),
-            #         )
-            #     self.overlap_predictor = OverlapOutputLayers(
-            #         box_head.output_size, 
-            #         num_classes = self.num_classes, 
-            #         sigmoid_on  = self.sigmoid_on
-            #     )
+            if self.overlap_enable and k == self.num_cascade_stages-1: 
+                # self._init_overlap_head(cfg, input_shape, in_channels, pooler_resolution)
+                self.build_on_roi_feature = cfg.MODEL.OVERLAP_BOX_HEAD.BUILD_ON_ROI_FEATURE
+                self.sigmoid_on           = cfg.MODEL.OVERLAP_BOX_HEAD.SIGMOID_ON
+                self.overlap_configs = {
+                    "overlap_iou_threshold":  cfg.MODEL.OVERLAP_BOX_HEAD.OVERLAP_IOU_THRESHOLD,
+                    "loss_overlap_reg_coeff": cfg.MODEL.OVERLAP_BOX_HEAD.REG_LOSS_COEFF,
+                    "uniform_reg_divisor":    cfg.MODEL.OVERLAP_BOX_HEAD.UNIFORM_REG_DIVISOR,
+                    "cls_box_beta":           cfg.MODEL.OVERLAP_BOX_HEAD.PROB_LOSS_BETA,
+                }
+                if self.build_on_roi_feature:
+                    self.overlap_head = build_box_head(
+                        cfg,
+                        ShapeSpec(channels=in_channels, height=pooler_resolution, width=pooler_resolution),
+                    )
+                self.overlap_predictor = OverlapOutputLayers(
+                    box_head.output_size, 
+                    num_classes = self.num_classes, 
+                    sigmoid_on  = self.sigmoid_on
+                )
             ############
 
             if k == 0:
@@ -115,7 +116,7 @@ class CascadeMutationROIHeads(StandardROIHeads):
     def forward(self, images, features, proposals, targets=None):
         del images
         if self.training:
-            proposals = self.label_and_sample_proposals(proposals, targets)
+            proposals = self.label_and_sample_proposals(proposals, targets, self.overlap_enable)
 
         if self.training:
             # Need targets to box head
@@ -149,21 +150,26 @@ class CascadeMutationROIHeads(StandardROIHeads):
                 )
                 if self.training:
                     proposals = self._match_and_label_boxes(proposals, k, targets)
-            head_outputs.append(self._run_stage(features, proposals, k))
+            if self.overlap_enable and k == self.num_cascade_stages - 1:
+                head_outputs.append(self._run_stage_overlap(features, proposals, k))
+            else:
+                head_outputs.append(self._run_stage(features, proposals, k))
 
         if self.training:
             losses = {}
             storage = get_event_storage()
+            self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
             for stage, output in enumerate(head_outputs):
                 with storage.name_scope("stage{}".format(stage)):
                     stage_losses = output.losses()
+                    self.loss_per_image += output.loss_per_image
                 losses.update({k + "_stage{}".format(stage): v for k, v in stage_losses.items()})
             return losses
         else:
             # Each is a list[Tensor] of length #image. Each tensor is Ri x (K+1)
             scores_per_stage = [h.predict_probs() for h in head_outputs]
 
-            # Average the scores across heads
+            # Average the scores across heads, [num_pred, num_classes+1]
             scores = [
                 sum(list(scores_per_image)) * (1.0 / self.num_cascade_stages)
                 for scores_per_image in zip(*scores_per_stage)
@@ -206,7 +212,7 @@ class CascadeMutationROIHeads(StandardROIHeads):
             
             gt_ignore_mask = targets_per_image.gt_classes.eq(-1).repeat(
                 ignore_match_quality_matrix_t.shape[0], 1
-            )
+            ) # [pred, gt]
             match_quality_matrix_t        *= ~gt_ignore_mask # remove ignored gt
             ignore_match_quality_matrix_t *= gt_ignore_mask  # remove valid gt
             
@@ -233,6 +239,23 @@ class CascadeMutationROIHeads(StandardROIHeads):
                 )
             proposals_per_image.gt_classes = gt_classes
             proposals_per_image.gt_boxes = gt_boxes
+
+
+            if self.overlap_enable:
+                matched_vals, sorted_idx = match_quality_matrix.sort(0, descending=True)
+                if matched_vals.size(0) > 1:
+                    # assign second large IoU
+                    overlap_iou    = matched_vals[1, :]
+                    overlap_gt_idx = sorted_idx[1, :]
+                else:
+                    overlap_iou    = matched_vals.new_zeros(matched_vals.size(1))
+                    overlap_gt_idx = sorted_idx[0, :]
+                selected_overlap_iou      = overlap_iou
+                selected_overlap_gt_idx   = overlap_gt_idx
+                selected_overlap_gt_boxes = targets_per_image.gt_boxes[selected_overlap_gt_idx]
+                proposals_per_image.overlap_iou      = selected_overlap_iou
+                proposals_per_image.overlap_gt_boxes = selected_overlap_gt_boxes
+
 
             num_fg_samples.append((proposal_labels == 1).sum().item())
             num_bg_samples.append(proposal_labels.numel() - num_fg_samples[-1])
@@ -275,7 +298,55 @@ class CascadeMutationROIHeads(StandardROIHeads):
             pred_proposal_deltas,
             proposals,
             self.smooth_l1_beta,
+            giou=self.giou,
+            allow_oob=self.allow_oob,
+            sample_type=self.sample_type,
+            loss_weight_box=self.loss_weight_box,
+            loss_weight_logic=self.loss_weight_logic,
         )
+        return outputs
+
+    def _run_stage_overlap(self, features, proposals, stage):
+
+        box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+
+        if self.build_on_roi_feature:
+            overlap_features = self.overlap_head(box_features)
+        # The original implementation averages the losses among heads,
+        # but scale up the parameter gradients of the heads.
+        # This is equivalent to adding the losses among heads,
+        # but scale down the gradients on features.
+        box_features = _ScaleGradient.apply(box_features, 1.0 / self.num_cascade_stages)
+        box_features = self.box_head[stage](box_features)
+        
+        pred_class_logits, pred_proposal_deltas = self.box_predictor[stage](box_features)
+        pred_overlap_prob, pred_overlap_deltas  = self.overlap_predictor(overlap_features)
+        del box_features
+        del overlap_features
+
+        # outputs = FastRCNNOutputs(
+        #     self.box2box_transform[stage],
+        #     pred_class_logits,
+        #     pred_proposal_deltas,
+        #     proposals,
+        #     self.smooth_l1_beta,
+        # )
+        outputs = OverlapFastRCNNOutputs(
+                self.box2box_transform[stage],
+                pred_class_logits,
+                pred_proposal_deltas,
+                proposals,
+                self.smooth_l1_beta,
+                pred_overlap_deltas=pred_overlap_deltas,
+                pred_overlap_prob=pred_overlap_prob,
+                overlap_configs=self.overlap_configs,
+                giou=self.giou,
+                allow_oob=self.allow_oob,
+                sample_type=self.sample_type, ## from roi_head
+                loss_weight_box=self.loss_weight_box, ## from roi_head
+                loss_weight_logic=self.loss_weight_logic, ## from roi_head
+            )
+
         return outputs
 
     def _create_proposals_from_boxes(self, boxes, image_sizes):

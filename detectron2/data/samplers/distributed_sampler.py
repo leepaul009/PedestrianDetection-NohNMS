@@ -182,7 +182,7 @@ class RepeatFactorTrainingSampler(Sampler):
                     .format( self._rank, len(indices), sorted_ids.shape[0], sorted_ids[:10], sorted_loss[:10] ))
                 
                 n_items    = min( 500, int(sorted_ids.shape[0]) )
-                rep_factor = 4
+                rep_factor = 1
                 indices.extend( sorted_ids[:n_items].tolist() * rep_factor )
 
                 if self.debug:

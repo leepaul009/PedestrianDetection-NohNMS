@@ -4,7 +4,7 @@ MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone_better"
-    FREEZE_AT: 2 # 0
+    FREEZE_AT: 0 # 0
   MASK_ON: False
   RESNETS:
     DEPTH: 50
@@ -37,9 +37,9 @@ MODEL:
     POSITIVE_FRACTION: 0.5
     # NMS_THRESH_TEST: 0.75
   FPN:
-    NORM: "BN"
+    NORM: "BN" # FrozenBN(def), BN, SyncBN
   OVERLAP_BOX_HEAD:
-    ENABLE: True # def True
+    ENABLE: False # def True
     BUILD_ON_ROI_FEATURE: True
     OVERLAP_IOU_THRESHOLD: 0.4
     REG_LOSS_COEFF: 1.0
@@ -61,14 +61,14 @@ DATALOADER:
   # RepeatFactorTrainingSampler or TrainingSampler(def)
   SAMPLER_TRAIN: "RepeatFactorTrainingSampler"
 DATASETS:
-  TRAIN: ("ped_train",)
-  TEST: ("ped_val",)
-  INFER: ("ped_test", )
+  TRAIN: ("pedetect_train",)
+  TEST:  ("pedetect_val",)
+  INFER: ("pedetect_test", )
 SOLVER:
   IMS_PER_BATCH: 2
-  BASE_LR: 0.0001
-  STEPS: (60000, 78000) # (60000, 78000) 210000, 250000 # new_parameter
-  MAX_ITER: 90000        # 90000 270000 # new_parameter
+  BASE_LR: 0.02
+  STEPS: (60000, 80000) # (16000, 21400) # 28000,37300 (60000, 78000) 210000, 250000 # new_parameter
+  MAX_ITER: 90000 # 24000        # 42000 90000 270000 # new_parameter
   CHECKPOINT_PERIOD: 1000
   WARMUP_ITERS: 800
   WARMUP_FACTOR: 0.1
