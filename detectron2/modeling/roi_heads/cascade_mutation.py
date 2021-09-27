@@ -158,11 +158,15 @@ class CascadeMutationROIHeads(StandardROIHeads):
         if self.training:
             losses = {}
             storage = get_event_storage()
-            self.loss_per_image = torch.zeros([len(proposals)], dtype=torch.float)
+            self.loss_per_image = None
             for stage, output in enumerate(head_outputs):
                 with storage.name_scope("stage{}".format(stage)):
                     stage_losses = output.losses()
-                    self.loss_per_image += output.loss_per_image
+                    if output.loss_per_image != None:
+                        if self.loss_per_image == None:
+                            self.loss_per_image = output.loss_per_image
+                        else:
+                            self.loss_per_image += output.loss_per_image
                 losses.update({k + "_stage{}".format(stage): v for k, v in stage_losses.items()})
             return losses
         else:
