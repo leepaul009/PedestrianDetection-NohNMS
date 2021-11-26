@@ -119,7 +119,8 @@ def load_pedetect(anno_file, image_dir, is_train=True):
             obj['vis_ratio'] = 1
             objs.append(obj)
         record['annotations'] = objs
-        if not exist_valid_bbox:
+        # make sure to see all the images in evaluation
+        if is_train and not exist_valid_bbox:
             continue
         dataset_dicts.append(record)
 
