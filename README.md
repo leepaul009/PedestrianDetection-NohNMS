@@ -42,7 +42,7 @@ And the loader of model will ignore the un-existed weight/bias or dimension-not-
 ### 3.2 Train:
 
 ```
-python tools/train_net.py    --num-gpus 4   --resume   --config-file configs/Ped/cascade.yaml   SOLVER.IMS_PER_BATCH 4    SOLVER.BASE_LR 0.02    SOLVER.CHECKPOINT_PERIOD 3464   TEST.EVAL_START 3464   TEST.EVAL_PERIOD 3464   MODEL.WEIGHTS  model_final_480dd8.pkl  OUTPUT_DIR "Experiments/detectron2/NewPed/cascade/origimg"
+python tools/train_net.py    --num-gpus 4   --resume   --config-file configs/Ped/cascade.yaml   SOLVER.IMS_PER_BATCH 4    SOLVER.BASE_LR 0.02    SOLVER.CHECKPOINT_PERIOD 3464   TEST.EVAL_START 3464   TEST.EVAL_PERIOD 3464   MODEL.WEIGHTS  model_final_480dd8.pkl  OUTPUT_DIR "Experiments/noh_nms_cascade/origimg"
 ```
 
 
