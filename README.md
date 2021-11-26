@@ -48,7 +48,11 @@ python tools/train_net.py    --num-gpus 4   --resume   --config-file configs/Ped
 ```
 Under the directory 'Experiments/noh_nms_cascade/inference/', you can see the evaluation result of each evaluation(its duration is defined by TEST.EVAL_PERIOD).
 For example, 'crowdhuman_evaluate_results_1.json' is the result first evaluation with COCO format. Besides, I have update the code to make sure all of the images in the evaluation set will be evaluated, otherwise its performace is unbelieveable!
+
 ### 3.3 Inference:
+```
+python tools/train_net.py    --infer-only    --config-file configs/Ped/cascade.yaml    MODEL.WEIGHTS {inference model, pth file}    OUTPUT_DIR "Experiments/noh_nms_cascade_inference"
+```
 
 ## Acknowledgement
 * [detectron2](https://github.com/facebookresearch/detectron2)
