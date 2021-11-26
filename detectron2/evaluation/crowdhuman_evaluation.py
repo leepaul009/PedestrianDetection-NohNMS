@@ -34,6 +34,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
     """
     Evaluate CrowdHuman MR^2.
     """
+    inter_cnt = 0
 
     def __init__(self, dataset_name, cfg, distributed, output_dir=None):
         """
@@ -51,7 +52,7 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         self._metadata = MetadataCatalog.get(dataset_name)
 
         ### add cnt
-        self.inter_cnt = 0
+        CrowdHumanEvaluator.inter_cnt += 1
 
     def reset(self):
         self._predictions = []
@@ -90,15 +91,15 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         self._logger.info("Preparing results for COCO format ...")
         self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
         if self._output_dir:
-            self.inter_cnt += 1
-            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(self.inter_cnt))
+            
+            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(CrowdHumanEvaluator.inter_cnt))
             self._logger.info("Saving results to {}".format(res_file))
             with PathManager.open(res_file, "w") as f:
                 f.write(json.dumps(self._coco_results))
                 f.flush()
 
             # self._logger.info("Saving results to {}".format(res_file))
-            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(self.inter_cnt))
+            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(CrowdHumanEvaluator.inter_cnt))
             self._logger.info("Saving submit file to {}".format(submit_file))
             with PathManager.open(submit_file, "w") as f:
                 for result in self.submit_results:
@@ -151,15 +152,15 @@ class CrowdHumanEvaluator(DatasetEvaluator):
         self._logger.info("Preparing results for COCO format ...")
         self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
         if self._output_dir:
-            self.inter_cnt += 1
-            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(self.inter_cnt))
+            
+            res_file = os.path.join(self._output_dir, "crowdhuman_evaluate_results_{}.json".format(CrowdHumanEvaluator.inter_cnt))
             self._logger.info("Saving results to {}".format(res_file))
             with PathManager.open(res_file, "w") as f:
                 f.write(json.dumps(self._coco_results))
                 f.flush()
 
             # self._logger.info("Saving results to {}".format(res_file))
-            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(self.inter_cnt))
+            submit_file = os.path.join(self._output_dir, "submission_{}.txt".format(CrowdHumanEvaluator.inter_cnt))
             self._logger.info("Saving submit file to {}".format(submit_file))
             with PathManager.open(submit_file, "w") as f:
                 for result in self.submit_results:
@@ -180,13 +181,25 @@ class CrowdHumanEvaluator(DatasetEvaluator):
             cocoDt = cocoGt.loadRes(res_file) 
             coco_eva = COCOeval(cocoGt, cocoDt, 'bbox')
 
-            img_ids_in_cat = set(cocoGt.catToImgs[1])
+            # img_ids_in_cat = set(cocoGt.catToImgs[1])
             coco_eva.params.catIds = [1] #person id : 1
-            coco_eva.params.imgIds = list(img_ids_in_cat)
+            # coco_eva.params.imgIds = list(img_ids_in_cat)
 
             coco_eva.evaluate()
             coco_eva.accumulate()
             coco_eva.summarize()
+
+            ###
+            if True:
+                eval_strs = [] 
+                eval_strs.append( 'mAP-50=' + str(coco_eva.stats[1]) )
+                eval_strs.append( 'mAP-75=' + str(coco_eva.stats[2]) )
+                eval_str = ', '.join(eval_strs)
+                eval_file = os.path.join(self._output_dir, "eval.txt")
+                with PathManager.open(eval_file, "a") as f:
+                    f.write( eval_str )
+                    f.write("\n")
+                    f.flush()
 
         self._logger.info("Evaluation results for Pedestrian Detection on PedDataset: \n")
         return None # ret_results

@@ -55,7 +55,7 @@ def load_pedetect(anno_file, image_dir, is_train=True):
 
     bad_images = ['1502445483179.jpg', '1502433988638.jpg']
     for img in images:
-        if img['id'] not in ids_in_cat:
+        if is_train and img['id'] not in ids_in_cat:
             continue
         if is_train and min(img['width'], img['height']) < 32:
             continue
@@ -97,14 +97,23 @@ def load_pedetect(anno_file, image_dir, is_train=True):
                 else:
                     obj['category_id'] = -1
                     ignore_instances += 1
+                
+                segm = ann.get("segmentation", None)
+                if segm:
+                    if not isinstance(segm, dict):
+                        segm = [poly for poly in segm if len(poly) % 2 == 0 and len(poly) >= 6]
+                        if len(segm) == 0:
+                            continue
+                    obj['segmentation'] = segm
             else:
-                ### for evaluation, do not pass 'ignore|iscrowd' bbox
+                ### for evaluation, do not filter 'ignore|iscrowd' bbox
+                ### for evaluation, do not filter invalid class
                 if ann['category_id'] in valid_classes:
                     obj['category_id'] = ann['category_id'] - 1
-                    exist_valid_bbox = True
                 else:
                     obj['category_id'] = -1
-                    ignore_instances += 1
+                    # ignore_instances += 1
+                exist_valid_bbox = True
             
             instances +=1
             obj['vis_ratio'] = 1

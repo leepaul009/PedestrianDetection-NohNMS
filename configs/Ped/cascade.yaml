@@ -47,10 +47,10 @@ MODEL:
     PROB_LOSS_BETA: 0.02
 INPUT:
   # (?, ) together with MIN_SIZE_TRAIN_SAMPLING = "choice", else (?,?) with "range"
-  MIN_SIZE_TRAIN: (1000, ) # def=800, short_edge_length
-  MIN_SIZE_TEST: 1000
-  MAX_SIZE_TRAIN: 1400
-  MAX_SIZE_TEST: 1400
+  MIN_SIZE_TRAIN: (1200, ) # def=800, short_edge_length
+  MIN_SIZE_TEST: 1200
+  MAX_SIZE_TRAIN: 1624
+  MAX_SIZE_TEST: 1624
   CROP:
     ENABLED: False # True
     TYPE: "relative_range"
@@ -67,11 +67,11 @@ DATASETS:
 SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.02
-  STEPS: (23200, 30940) # b8x1
-  MAX_ITER: 34800       # b8x1
-  CHECKPOINT_PERIOD: 1000
-  WARMUP_ITERS: 800
-  WARMUP_FACTOR: 0.1
+  STEPS: (70000, 80000)
+  MAX_ITER: 90000       # 20epoch 280000
+  CHECKPOINT_PERIOD: 2000
+  WARMUP_ITERS: 500
+  WARMUP_FACTOR: 0.001
   # LR_SCHEDULER_NAME: "cycle"
   LOSS_WEIGHT_BOX: 1.0    # def 1.0
   LOSS_WEIGHT_LOGIC: 1.0  # def 1.0

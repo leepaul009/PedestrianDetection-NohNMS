@@ -59,19 +59,19 @@ DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
   WITH_HOOKS: True # new_parameter
   # RepeatFactorTrainingSampler or TrainingSampler(def)
-  SAMPLER_TRAIN: "TrainingSampler"
+  SAMPLER_TRAIN: "RepeatFactorTrainingSampler"
 DATASETS:
   TRAIN: ("pedetect_train",)
   TEST:  ("pedetect_val",)
   INFER: ("pedetect_test", )
 SOLVER:
-  IMS_PER_BATCH: 8
+  IMS_PER_BATCH: 4
   BASE_LR: 0.02
-  STEPS: (69600, 92820)  # b8x3: 23200*3, 30940*3
-  MAX_ITER: 104400       # b8x3: 34800*3
-  CHECKPOINT_PERIOD: 1000
-  WARMUP_ITERS: 800
-  WARMUP_FACTOR: 0.1
+  STEPS: (115000, 137000)  # b8 x3: 23200*3, 30940*3 (69600, 92820)
+  MAX_ITER: 148000         # b8 x3: 34800*3 104400
+  CHECKPOINT_PERIOD: 2000
+  WARMUP_ITERS:  500    # 
+  WARMUP_FACTOR: 0.001  # 1 / WARMUP_ITERS
   # LR_SCHEDULER_NAME: "cycle"
   LOSS_WEIGHT_BOX: 1.0    # def 1.0
   LOSS_WEIGHT_LOGIC: 1.0  # def 1.0
