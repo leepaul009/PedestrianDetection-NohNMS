@@ -47,7 +47,7 @@ And the loader of model will ignore the un-existed weight/bias or dimension-not-
 ```
 python tools/train_net.py    --num-gpus 4   --resume   --config-file configs/Ped/cascade.yaml   SOLVER.IMS_PER_BATCH 4    SOLVER.BASE_LR 0.02    SOLVER.CHECKPOINT_PERIOD 3464   TEST.EVAL_START 3464   TEST.EVAL_PERIOD 3464   MODEL.WEIGHTS  model_final_480dd8.pkl  OUTPUT_DIR "Experiments/noh_nms_cascade"
 ```
-SOLVER.CHECKPOINT_PERIOD and TEST.EVAL_PERIOD should be same. The value of SOLVER.CHECKPOINT_PERIOD depends on the number of GPUs and the number of images in training set, ex. 3464 * 4 = 13856(number of images in training set).
+SOLVER.CHECKPOINT_PERIOD and TEST.EVAL_PERIOD should be same. The value of SOLVER.CHECKPOINT_PERIOD depends on the number of GPUs, batch size per GPU and the number of images in training set, ex. 3464 * 1(batch size) * 4 = 13856(number of images in training set).
 
 Under the directory 'Experiments/noh_nms_cascade/inference/', you can see the evaluation result of each evaluation(its duration is defined by TEST.EVAL_PERIOD).
 For example, 'crowdhuman_evaluate_results_1.json' is the result first evaluation with COCO format. Besides, I have update the code to make sure all of the images in the evaluation set will be evaluated, otherwise its performace is unbelieveable!
